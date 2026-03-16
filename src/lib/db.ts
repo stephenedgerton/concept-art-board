@@ -20,9 +20,6 @@ export interface ConceptArt {
         characterName?: string;
     };
     createdAt: number;
-    x?: number;
-    y?: number;
-    scale?: number;
 
     // For backwards compatibility in upload/updates
     blob?: Blob;
@@ -42,19 +39,6 @@ export interface CategoryDefinition {
     vfxType: string[];
     characterName: string[];
 }
-
-export const DEFAULT_CATEGORIES: CategoryDefinition = {
-    race: ['Human', 'Orc', 'Undead', 'Construct', 'Mystical Creature'],
-    faction: ['Monarchy', 'Clan', 'Folk', 'Elementals', 'Constructs', 'Dark Magic Followers - artisans'],
-    baseMesh: ['human', 'thin human', 'mid human', 'stocky', 'great ape', 'mono boned'],
-    element: ['fire', 'water', 'earth', 'Celestial', 'arcane', 'dark magic'],
-    unitType: ['vanguards', 'Elites', 'Imperials', 'workers', 'Heroes'],
-    rarity: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic'],
-    animationType: ['stun animations', 'death animations', 'run', 'idle', 'level up abilities', 'melee abilities', 'ranged abilities', 'magic abilities'],
-    abilityTags: ['sword', 'axe', 'slash', 'impact', 'projectile'],
-    vfxType: ['Explosion', 'Aura', 'Projectile', 'Impact', 'Trail'],
-    characterName: []
-};
 
 const API_BASE = '/api';
 
@@ -163,10 +147,6 @@ export async function updateArtwork(id: string, updates: Partial<ConceptArt>): P
         body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error('Update failed');
-}
-
-export async function updateArtworkTransform(id: string, x: number, y: number, scale: number): Promise<void> {
-    return updateArtwork(id, { x, y, scale });
 }
 
 export async function getAllArtworks(): Promise<ConceptArt[]> {

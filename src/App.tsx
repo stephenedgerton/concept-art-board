@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiLink, FiCopy } from 'react-icons/fi';
 import { clsx } from 'clsx';
-import { openDB } from 'idb';
 import {
   addArtwork, getAllArtworks, deleteArtwork,
   getTags, addTagToCategory, updateArtwork, renameCategoryTag
@@ -268,12 +267,6 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <FiImage /> ConceptVault
-          <button 
-            onClick={() => setHealthError("DEBUG: Testing Egnyte Error Banner. Please ensure Egnyte is active.")}
-            style={{ opacity: 0.1, fontSize: '9px', marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
-          >
-            [test]
-          </button>
         </div>
 
         <button className="upload-button" onClick={() => setUploadModalOpen(true)}>
@@ -685,9 +678,6 @@ function UploadModal({
           compressedBlob,
           type: targetType,
           tags,
-          x: 0,
-          y: 0,
-          scale: 1
         });
       }
       onUploadSuccess();
