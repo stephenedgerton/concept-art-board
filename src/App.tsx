@@ -1005,22 +1005,21 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
   const { ref, isVisible } = useVisibility();
 
   useEffect(() => {
-    if (!isVisible) {
-      setUrl('');
-      return;
+    if (isVisible && !url) {
+      setUrl(art.compressedUrl || art.originalUrl);
     }
-    setUrl(art.compressedUrl || art.originalUrl);
-  }, [art.originalUrl, art.compressedUrl, isVisible]);
+  }, [art.originalUrl, art.compressedUrl, isVisible, url]);
 
   useEffect(() => {
     if (isVideo && videoRef.current) {
-      if (!playOnHover || isHovered) {
+      const shouldPlay = isVisible && (!playOnHover || isHovered);
+      if (shouldPlay) {
         videoRef.current.play().catch(() => { });
       } else {
         videoRef.current.pause();
       }
     }
-  }, [playOnHover, isHovered, isVideo]);
+  }, [playOnHover, isHovered, isVideo, isVisible]);
 
   return (
     <motion.div
