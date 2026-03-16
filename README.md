@@ -14,7 +14,7 @@ Follow these steps to get the ConceptVault running on your machine:
 ### 2. Installation
 1.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/[YOUR-ORG]/concept-art-board.git
+    git clone https://github.com/stephenedgerton/concept-art-board.git
     cd concept-art-board
     ```
 2.  **Install Dependencies**:
