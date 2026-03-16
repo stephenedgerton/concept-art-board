@@ -1,73 +1,62 @@
-# React + TypeScript + Vite
+# ConceptVault
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A high-performance asset management board for Concept Art, Animations, and VFX. Built with React + TypeScript, Vite, and Express, specifically designed to bridge local workflows with shared cloud storage (Egnyte).
 
-Currently, two official plugins are available:
+## 🚀 Quick Start (Team Members)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Follow these steps to get the ConceptVault running on your machine:
 
-## React Compiler
+### 1. Prerequisites
+*   **Node.js**: Install [Node.js v18+](https://nodejs.org/).
+*   **Egnyte Desktop App**: Ensure you have the Egnyte Desktop App installed and you are logged in.
+*   **Access**: You must have read/write access to the `Concept_Vault_Assets` folder on Egnyte.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 2. Installation
+1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/[YOUR-ORG]/concept-art-board.git
+    cd concept-art-board
+    ```
+2.  **Install Dependencies**:
+    Open a terminal in the folder and run:
+    ```bash
+    npm install
+    ```
 
-## Expanding the ESLint configuration
+### 3. Configuration
+The application needs to know where your Egnyte drive is located.
+1.  Open `Start_ConceptVault.bat` in a text editor (like Notepad).
+2.  Find the lines starting with `set CONCEPT_DATA_DIR` and `set CONCEPT_UPLOADS_DIR`.
+3.  Update the drive letter (e.g., `Z:`) to match your Egnyte drive mapping:
+    ```batch
+    set CONCEPT_DATA_DIR=Z:\Shared\Pixion Games\01_Fableborne\011_Game\Content\Characters\Concept_Vault_Assets\data
+    set CONCEPT_UPLOADS_DIR=Z:\Shared\Pixion Games\01_Fableborne\011_Game\Content\Characters\Concept_Vault_Assets\uploads
+    ```
+4.  Save the file.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 4. Running the App
+Simply double-click **`Start_ConceptVault.bat`**.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+This script will:
+*   Automatically run `npm install` to ensure you are up to date.
+*   Start the local bridge server (connects the app to your Egnyte files).
+*   Launch the ConceptVault in your default web browser at `http://localhost:5173`.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🛠 Features
+*   **Shared Storage**: All data and assets are stored directly on Egnyte, meaning changes you make are instantly available to the whole team.
+*   **Smart Uploads**: Automatically generates low-res video previews (using FFmpeg) to save bandwidth.
+*   **Bulk Editing**: Tag multiple assets at once to keep the library organized.
+*   **Global Search**: Instant filtering by name or categories (Faction, Combat Type, Rarity, etc.).
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🏗 Architecture
+*   **Frontend**: React + Vite (Fast and responsive UI).
+*   **Local Bridge**: A lightweight Express server (`server.js`) that acts as a secure tunnel between your web browser and the Egnyte folder on your hard drive.
+*   **Data Structure**:
+    *   `/data`: Contains `artworks.json` (the database) and `categories.json` (the tag list).
+    *   `/uploads`: Contains the actual image and video files.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## ⚠️ Troubleshooting
+*   **"Unable to connect to Egnyte"**: Ensure your Egnyte Desktop App is running and the drive letter in the `.bat` file is correct.
+*   **Port Conflicts**: If the app fails to start, ensure port `5173` and `3001` are not being used by other applications.
