@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --background: 220 15% 10%;
+  --surface: 220 20% 15%;
+  --surface-hover: 220 20% 20%;
+  --primary: 260 85% 65%;
+  --primary-hover: 260 85% 70%;
+  --text: 220 15% 95%;
+  --text-dim: 220 10% 70%;
+  --danger: 0 85% 65%;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  
+  --shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 16px -4px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.6);
+  
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  
+  /* Tag colors dynamically set based on category */
+  --tag-faction: 340 80% 60%;
+  --tag-combat: 30 90% 60%;
+  --tag-mesh: 160 80% 40%;
+  --tag-element: 200 90% 60%;
+  --tag-unit: 280 80% 65%;
+  --tag-rarity: 45 90% 55%;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: hsl(var(--background));
+  color: hsl(var(--text));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+}
+
+#root {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--surface-hover));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--text-dim));
+}
+
+input, button, select {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: all 0.2s ease;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* Loading spinner */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid hsl(var(--surface-hover));
+  border-top-color: hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
