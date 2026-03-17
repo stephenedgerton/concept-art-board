@@ -73,17 +73,44 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Mutex to prevent concurrent writes/reads to artworks.json
+let artworkLock = Promise.resolve();
+async function withArtworkLock(fn) {
+    const nextLock = artworkLock.then(async () => {
+        try {
+            return await fn();
+        } catch (e) {
+            console.error('Lock execution error:', e);
+            throw e;
+        }
+    });
+    artworkLock = nextLock.catch(() => {}); // Continue queue even on error
+    return nextLock;
+}
+
 // Helper functions
 async function getArtworks() {
     const data = await fs.readFile(ARTWORKS_FILE, 'utf-8');
-    return JSON.parse(data);
+    if (!data || data.trim() === '') return [];
+    try {
+        return JSON.parse(data);
+    } catch (e) {
+        console.error('JSON Parse Error in getArtworks:', e);
+        return [];
+    }
 }
 async function saveArtworks(artworks) {
     await fs.writeFile(ARTWORKS_FILE, JSON.stringify(artworks, null, 2));
 }
 async function getCategories() {
     const data = await fs.readFile(CATEGORIES_FILE, 'utf-8');
-    return JSON.parse(data);
+    if (!data || data.trim() === '') return DEFAULT_CATEGORIES;
+    try {
+        return JSON.parse(data);
+    } catch (e) {
+        console.error('JSON Parse Error in getCategories:', e);
+        return DEFAULT_CATEGORIES;
+    }
 }
 async function saveCategories(categories) {
     await fs.writeFile(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
@@ -103,24 +130,29 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/api/artworks', async (req, res) => {
     if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
-    res.json(await getArtworks());
+    res.json(await withArtworkLock(() => getArtworks()));
 });
 
 app.post('/api/artworks', upload.fields([{ name: 'original', maxCount: 1 }, { name: 'compressed', maxCount: 1 }]), async (req, res) => {
     try {
         if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
-        const artworks = await getArtworks();
-        const artData = JSON.parse(req.body.data);
+        
+        const result = await withArtworkLock(async () => {
+            const artworks = await getArtworks();
+            const artData = JSON.parse(req.body.data);
 
-        const newArt = {
-            ...artData,
-            originalUrl: req.files['original'] ? `/uploads/${req.files['original'][0].filename}` : null,
-            compressedUrl: req.files['compressed'] ? `/uploads/${req.files['compressed'][0].filename}` : null,
-        };
+            const newArt = {
+                ...artData,
+                originalUrl: req.files['original'] ? `/uploads/${req.files['original'][0].filename}` : null,
+                compressedUrl: req.files['compressed'] ? `/uploads/${req.files['compressed'][0].filename}` : null,
+            };
 
-        artworks.push(newArt);
-        await saveArtworks(artworks);
-        res.json({ id: newArt.id, success: true });
+            artworks.push(newArt);
+            await saveArtworks(artworks);
+            return { id: newArt.id, success: true };
+        });
+        
+        res.json(result);
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: 'Failed to upload artwork' });
@@ -128,63 +160,113 @@ app.post('/api/artworks', upload.fields([{ name: 'original', maxCount: 1 }, { na
 });
 
 app.put('/api/artworks/:id', async (req, res) => {
-    if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
-    const artworks = await getArtworks();
-    const index = artworks.findIndex(a => a.id === req.params.id);
-    if (index !== -1) {
-        artworks[index] = { ...artworks[index], ...req.body };
-        await saveArtworks(artworks);
-        res.json(artworks[index]);
-    } else {
-        res.status(404).json({ error: 'Not found' });
+    try {
+        if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
+        
+        const result = await withArtworkLock(async () => {
+            const artworks = await getArtworks();
+            const index = artworks.findIndex(a => a.id === req.params.id);
+            if (index !== -1) {
+                artworks[index] = { ...artworks[index], ...req.body };
+                await saveArtworks(artworks);
+                return artworks[index];
+            }
+            return null;
+        });
+
+        if (result) {
+            res.json(result);
+        } else {
+            res.status(404).json({ error: 'Not found' });
+        }
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Failed to update artwork' });
     }
 });
 
 app.delete('/api/artworks/:id', async (req, res) => {
-    if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
-    let artworks = await getArtworks();
-    const index = artworks.findIndex(a => a.id === req.params.id);
-    if (index !== -1) {
-        const art = artworks[index];
-        // Remove files
-        if (art.originalUrl) {
-            const filename = path.basename(art.originalUrl);
-            const file = path.join(UPLOADS_DIR, filename);
-            if (existsSync(file)) await fs.unlink(file);
-        }
-        if (art.compressedUrl) {
-            const filename = path.basename(art.compressedUrl);
-            const file = path.join(UPLOADS_DIR, filename);
-            if (existsSync(file)) await fs.unlink(file);
-        }
-        artworks.splice(index, 1);
-        await saveArtworks(artworks);
+    try {
+        if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
+        
+        await withArtworkLock(async () => {
+            let artworks = await getArtworks();
+            const index = artworks.findIndex(a => a.id === req.params.id);
+            if (index !== -1) {
+                const art = artworks[index];
+                // Remove files
+                if (art.originalUrl) {
+                    const filename = path.basename(art.originalUrl);
+                    const file = path.join(UPLOADS_DIR, filename);
+                    if (existsSync(file)) await fs.unlink(file);
+                }
+                if (art.compressedUrl) {
+                    const filename = path.basename(art.compressedUrl);
+                    const file = path.join(UPLOADS_DIR, filename);
+                    if (existsSync(file)) await fs.unlink(file);
+                }
+                artworks.splice(index, 1);
+                await saveArtworks(artworks);
+            }
+        });
+        res.json({ success: true });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Failed to delete artwork' });
     }
-    res.json({ success: true });
 });
+
+
+// Mutex for categories
+let categoryLock = Promise.resolve();
+async function withCategoryLock(fn) {
+    const nextLock = categoryLock.then(async () => {
+        try {
+            return await fn();
+        } catch (e) {
+            console.error('Category lock execution error:', e);
+            throw e;
+        }
+    });
+    categoryLock = nextLock.catch(() => {});
+    return nextLock;
+}
 
 app.get('/api/categories', async (req, res) => {
     if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
-    res.json(await getCategories());
+    res.json(await withCategoryLock(() => getCategories()));
 });
 
 app.put('/api/categories', async (req, res) => {
     if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
-    await saveCategories(req.body);
+    await withCategoryLock(() => saveCategories(req.body));
     res.json({ success: true });
 });
 
 app.post('/api/artworks/:id/optimize', upload.fields([{ name: 'compressed', maxCount: 1 }]), async (req, res) => {
     // Allows sending the compressed version later as an update
-    if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
-    const artworks = await getArtworks();
-    const index = artworks.findIndex(a => a.id === req.params.id);
-    if (index !== -1 && req.files['compressed']) {
-        artworks[index].compressedUrl = `/uploads/${req.files['compressed'][0].filename}`;
-        await saveArtworks(artworks);
-        res.json(artworks[index]);
-    } else {
-        res.status(404).json({ error: 'Not found or missing file' });
+    try {
+        if (storageError && !(await checkStorage())) return res.status(503).json({ error: storageError });
+        
+        const result = await withArtworkLock(async () => {
+            const artworks = await getArtworks();
+            const index = artworks.findIndex(a => a.id === req.params.id);
+            if (index !== -1 && req.files['compressed']) {
+                artworks[index].compressedUrl = `/uploads/${req.files['compressed'][0].filename}`;
+                await saveArtworks(artworks);
+                return artworks[index];
+            }
+            return null;
+        });
+
+        if (result) {
+            res.json(result);
+        } else {
+            res.status(404).json({ error: 'Not found or missing file' });
+        }
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Failed to optimize artwork' });
     }
 });
 

@@ -186,7 +186,8 @@ export default function App() {
 
   const handleBulkUpdate = async (newTags: Record<string, string | string[]>) => {
     try {
-      const updatePromises = Array.from(selectedIds).map(async (id) => {
+      // Process updates sequentially to avoid race conditions and overwhelming the server
+      for (const id of Array.from(selectedIds)) {
         const art = artworks.find(a => a.id === id);
         if (art) {
           const mergedTags = { ...art.tags };
@@ -201,8 +202,7 @@ export default function App() {
           }
           await updateArtwork(id, { tags: mergedTags });
         }
-      });
-      await Promise.all(updatePromises);
+      }
       setSelectedIds(new Set());
       loadData();
       setBulkEditModalOpen(false);
