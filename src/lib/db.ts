@@ -16,6 +16,7 @@ export interface ConceptArt {
         rarity?: string;
         animationType?: string;
         abilityTags?: string;
+        abilityAction?: string;
         vfxType?: string[];
         characterName?: string;
     };
@@ -36,6 +37,7 @@ export interface CategoryDefinition {
     rarity: string[];
     animationType: string[];
     abilityTags: string[];
+    abilityAction: string[];
     vfxType: string[];
     characterName: string[];
 }

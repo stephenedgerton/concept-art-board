@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiLink, FiCopy } from 'react-icons/fi';
+import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiLink, FiHome, FiLayers } from 'react-icons/fi';
 import { clsx } from 'clsx';
 import {
   addArtwork, getAllArtworks, deleteArtwork,
@@ -12,7 +12,11 @@ import './App.css';
 
 export const cleanName = (name: string) => name.replace(/_/g, ' ').replace(/\s*v\d+\s*$/i, '').trim();
 
-export default function App() {
+interface VaultProps {
+  onBackToLanding: () => void;
+}
+
+export default function Vault({ onBackToLanding }: VaultProps) {
   const [activeTab, setActiveTab] = useState<AssetType>('concept-art');
   const [artworks, setArtworks] = useState<ConceptArt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +27,7 @@ export default function App() {
   const [viewerArt, setViewerArt] = useState<ConceptArt | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'element-asc'>('name-asc');
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'>('name-asc');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkEditModalOpen, setBulkEditModalOpen] = useState(false);
@@ -44,13 +48,10 @@ export default function App() {
     element: [],
     unitType: [],
     rarity: [],
-    animationType: [],
-    abilityAction: []
+    animationType: []
   });
 
   const [zoom, setZoom] = useState(1);
-  const [selectionBox, setSelectionBox] = useState<{ start: { x: number, y: number }, end: { x: number, y: number } } | null>(null);
-  const galleryRef = useRef<HTMLDivElement>(null);
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
@@ -98,52 +99,6 @@ export default function App() {
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (!selectionBox) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      setSelectionBox(prev => prev ? { ...prev, end: { x: e.clientX, y: e.clientY } } : null);
-
-      // Calculate intersection
-      const x1 = Math.min(selectionBox.start.x, e.clientX);
-      const y1 = Math.min(selectionBox.start.y, e.clientY);
-      const x2 = Math.max(selectionBox.start.x, e.clientX);
-      const y2 = Math.max(selectionBox.start.y, e.clientY);
-
-      const cards = document.querySelectorAll('.static-card');
-      const newSelected = new Set(selectedIds);
-      let changed = false;
-      
-      cards.forEach((card: any) => {
-        const rect = card.getBoundingClientRect();
-        const id = card.getAttribute('data-id');
-        if (!id) return;
-
-        const isIntersecting = !(rect.left > x2 || rect.right < x1 || rect.top > y2 || rect.bottom < y1);
-        
-        if (isIntersecting && !newSelected.has(id)) {
-          newSelected.add(id);
-          changed = true;
-        }
-      });
-
-      if (changed) {
-        setSelectedIds(newSelected);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setSelectionBox(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [selectionBox, isSelectionMode, selectedIds]);
-
   const toggleFilter = (category: string, value: string) => {
     setFilters(prev => {
       const current = prev[category] || [];
@@ -157,7 +112,7 @@ export default function App() {
   const clearFilters = () => {
     setFilters({
       race: [], faction: [], combatType: [], baseMesh: [],
-      element: [], unitType: [], rarity: [], animationType: [], vfxType: [], abilityAction: []
+      element: [], unitType: [], rarity: [], animationType: [], vfxType: []
     });
     setSearchQuery('');
   };
@@ -172,7 +127,7 @@ export default function App() {
       case 'vfx':
         return ['element', 'vfxType'];
       case 'ability-icons':
-        return ['element', 'characterName', 'abilityAction'];
+        return ['element', 'characterName'];
       case 'references':
         return ['referenceType'];
       default:
@@ -213,12 +168,6 @@ export default function App() {
       if (sortBy === 'date-asc') return a.createdAt - b.createdAt;
       if (sortBy === 'name-asc') return cleanName(a.name).localeCompare(cleanName(b.name));
       if (sortBy === 'name-desc') return cleanName(b.name).localeCompare(cleanName(a.name));
-      if (sortBy === 'element-asc') {
-        const elA = (a.tags.element || '').toLowerCase();
-        const elB = (b.tags.element || '').toLowerCase();
-        if (elA !== elB) return elA.localeCompare(elB);
-        return cleanName(a.name).localeCompare(cleanName(b.name));
-      }
       return 0;
     });
   }, [artworks, filters, searchQuery, activeTab, sortBy, activeCategories]);
@@ -269,8 +218,6 @@ export default function App() {
 
 
   const handleGlobalDrop = (e: React.DragEvent) => {
-    // If we're dragging a selection marquee, don't trigger upload
-    if (selectionBox) return;
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       setDraggedFiles(Array.from(e.dataTransfer.files));
@@ -278,27 +225,11 @@ export default function App() {
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!isSelectionMode || e.button !== 0) return;
-
-    // Only start if clicking on the gallery container itself or the grid
-    const target = e.target as HTMLElement;
-    if (!target.closest('.gallery-container') || target.closest('button') || target.closest('select') || target.closest('input')) return;
-
-    e.preventDefault(); // Prevent native selection/marquee
-
-    setSelectionBox({
-      start: { x: e.clientX, y: e.clientY },
-      end: { x: e.clientX, y: e.clientY }
-    });
-  };
-
   return (
     <div
       className="app-container"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleGlobalDrop}
-      onMouseDown={handleMouseDown}
     >
       {healthError && (
         <div style={{
@@ -338,8 +269,17 @@ export default function App() {
       )}
       {/* Sidebar Filters */}
       <aside className="sidebar">
-        <div className="brand">
-          <FiImage /> ConceptVault
+        <div className="brand-container">
+          <div className="brand">
+            <FiLayers /> ConceptVault
+          </div>
+          <button 
+            className="back-home-btn" 
+            onClick={onBackToLanding}
+            title="Back to Landing"
+          >
+            <FiHome size={18} />
+          </button>
         </div>
 
         <button className="upload-button" onClick={() => setUploadModalOpen(true)}>
@@ -367,7 +307,7 @@ export default function App() {
           </button>
           <button
             className={clsx('tab', activeTab === 'ability-icons' && 'active')}
-            onClick={() => { setActiveTab('ability-icons'); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('element-asc'); setZoom(1.25); }}
+            onClick={() => { setActiveTab('ability-icons'); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('name-asc'); setZoom(1.25); }}
           >
             <FiImage /> Ability Icons
           </button>
@@ -456,7 +396,6 @@ export default function App() {
               <option value="date-asc">Oldest First</option>
               <option value="name-asc">Name (A-Z)</option>
               <option value="name-desc">Name (Z-A)</option>
-              <option value="element-asc">Element</option>
             </select>
             <button
               className="clear-filters"
@@ -483,7 +422,7 @@ export default function App() {
           </div>
         </header>
 
-        <section className={clsx("gallery-container", isSelectionMode && "selection-active")} ref={galleryRef}>
+        <section className="gallery-container">
           {loading ? (
             <div className="empty-state">
               <div className="spinner" />
@@ -504,39 +443,25 @@ export default function App() {
             >
               <AnimatePresence mode="popLayout">
                 {filteredArtworks.map(art => (
-                  <div key={art.id} className="static-card" data-id={art.id}>
-                    <StaticArtwork
-                      art={art}
-                      onDelete={() => handleDelete(art.id)}
-                      onClick={() => {
-                        if (isSelectionMode) toggleSelection(art.id);
-                        else setViewerArt(art);
-                      }}
-                      selected={selectedIds.has(art.id)}
-                      isSelectionMode={isSelectionMode}
-                      playOnHover={playOnHover}
-                      showTags={showTags}
-                    />
-                  </div>
+                  <StaticArtwork
+                    key={art.id}
+                    art={art}
+                    onDelete={() => handleDelete(art.id)}
+                    onClick={() => {
+                      if (isSelectionMode) toggleSelection(art.id);
+                      else setViewerArt(art);
+                    }}
+                    selected={selectedIds.has(art.id)}
+                    isSelectionMode={isSelectionMode}
+                    playOnHover={playOnHover}
+                    showTags={showTags}
+                  />
                 ))}
               </AnimatePresence>
             </div>
           )}
         </section>
       </main>
-
-      {/* Selection Marquee */}
-      {selectionBox && (
-        <div 
-          className="selection-marquee"
-          style={{
-            left: Math.min(selectionBox.start.x, selectionBox.end.x),
-            top: Math.min(selectionBox.start.y, selectionBox.end.y),
-            width: Math.abs(selectionBox.start.x - selectionBox.end.x),
-            height: Math.abs(selectionBox.start.y - selectionBox.end.y),
-          }}
-        />
-      )}
 
       {/* Modals */}
       <AnimatePresence>
@@ -733,7 +658,7 @@ function UploadModal({
       case 'concept-art': return ['race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
       case 'animation': return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx': return ['element', 'vfxType'];
-      case 'ability-icons': return ['element', 'characterName', 'abilityAction'];
+      case 'ability-icons': return ['element', 'characterName'];
       case 'references': return ['referenceType'];
       default: return [];
     }
@@ -918,7 +843,7 @@ function ViewerModal({ art, categoryTags, onClose, onUpdateSuccess }: {
       case 'concept-art': return ['race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
       case 'animation': return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx': return ['element', 'vfxType'];
-      case 'ability-icons': return ['element', 'characterName', 'abilityAction'];
+      case 'ability-icons': return ['element', 'characterName'];
       case 'references': return ['referenceType'];
       default: return [];
     }
@@ -1207,7 +1132,7 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
           }}>
             {cleanName(art.name)}
           </h4>
-          {showTags && (
+          {art.type !== 'ability-icons' && showTags && (
             <div className="art-card-tags">
               {Object.entries(art.tags).flatMap(([key, value]) => {
                 if (!value) return [];

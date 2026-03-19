@@ -271,6 +271,10 @@
   height: 100%;
 }
 
+.gallery-container.selection-active {
+  user-select: none;
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -435,6 +439,11 @@
 .tag-badge.vfxType {
   background-color: hsla(280, 80%, 60% / 0.15);
   color: hsl(280, 80%, 65%);
+}
+
+.tag-badge.abilityAction {
+  background-color: hsla(150, 80%, 60% / 0.15);
+  color: hsl(150, 80%, 65%);
 }
 
 .tag-badge.element.element-fire {
@@ -735,4 +744,12 @@
   font-size: 1.1rem;
   color: hsl(var(--text));
   word-break: break-word;
+}
+
+.selection-marquee {
+  position: fixed;
+  border: 1px solid hsl(var(--primary));
+  background-color: hsla(var(--primary) / 0.1);
+  z-index: 9999;
+  pointer-events: none;
 }
