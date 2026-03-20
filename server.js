@@ -15,6 +15,7 @@ app.use(express.json());
 
 const UPLOADS_DIR = process.env.CONCEPT_UPLOADS_DIR || path.join(__dirname, 'public', 'uploads');
 const DATA_DIR = process.env.CONCEPT_DATA_DIR || path.join(__dirname, 'data');
+const BACKGROUNDS_DIR = process.env.CONCEPT_BACKGROUNDS_DIR || path.join(__dirname, 'public', 'backgrounds');
 const ARTWORKS_FILE = path.join(DATA_DIR, 'artworks.json');
 const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
 
@@ -61,6 +62,7 @@ async function checkStorage() {
 await checkStorage();
 
 app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/backgrounds', express.static(BACKGROUNDS_DIR));
 
 // Setup Multer for handling file uploads
 const storage = multer.diskStorage({

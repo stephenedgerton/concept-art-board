@@ -48,7 +48,9 @@ export default function Vault({ onBackToLanding }: VaultProps) {
     element: [],
     unitType: [],
     rarity: [],
-    animationType: []
+    animationType: [],
+    vfxType: [],
+    abilityAction: []
   });
 
   const [zoom, setZoom] = useState(1);
@@ -127,7 +129,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
       case 'vfx':
         return ['element', 'vfxType'];
       case 'ability-icons':
-        return ['element', 'characterName'];
+        return ['element', 'characterName', 'abilityAction'];
       case 'references':
         return ['referenceType'];
       default:
