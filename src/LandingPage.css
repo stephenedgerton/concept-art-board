@@ -138,7 +138,7 @@
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8px); /* Drastically reduced blur */
+  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
@@ -270,14 +270,14 @@
   display: flex;
   height: 100vh;
   width: 100vw;
-  background-color: hsl(var(--background)); /* Match Vault */
+  background-color: hsl(var(--background));
   overflow: hidden;
   color: white;
 }
 
 .roster-page-container .sidebar {
   width: var(--roster-sidebar-width);
-  background-color: hsl(var(--surface) / 0.8); /* Match Vault */
+  background-color: hsl(var(--surface) / 0.8);
   border-right: 1px solid hsl(var(--surface-hover));
   display: flex;
   flex-direction: column;
@@ -421,7 +421,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: hsl(var(--background)); /* Match Vault */
+  background-color: hsl(var(--background));
   position: relative;
   z-index: 5;
 }
@@ -533,31 +533,77 @@
 
 .card-accent { height: 4px; width: 100%; background: #9e9e9e; }
 .card-main { padding: 1.2rem; flex: 1; }
-.card-row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
-.char-type-badge {
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
+
+/* Refined Header area inside card */
+.card-header-area {
+  margin-bottom: 1rem;
+}
+
+.char-name-mini { font-size: 1.2rem; font-weight: 800; margin: 0 0 0.2rem; line-height: 1.2; }
+
+.char-subtitle-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
+  font-weight: 600;
+}
+
+.char-subtype-inline {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--primary));
 }
 
-.rarity-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.char-name-mini { font-size: 1.2rem; font-weight: 800; margin: 0 0 0.2rem; }
-.char-faction-mini { font-size: 0.8rem; color: rgba(255, 255, 255, 0.4); margin-bottom: 1.2rem; }
+.separator { opacity: 0.3; }
+
+.char-faction-inline {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Traits Section */
+.traits-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.section-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 0.6rem;
+}
+
 .mini-details { display: flex; flex-direction: column; gap: 0.5rem; }
 .detail-tag { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); display: flex; align-items: center; gap: 0.6rem; }
 .detail-tag svg { opacity: 0.2; }
 
-.card-bottom-mini { padding: 0.8rem 1.2rem; background: hsla(0, 0%, 0%, 0.2); display: flex; justify-content: space-between; align-items: center; }
-.mini-elements { display: flex; gap: 6px; }
+.card-bottom-mini { padding: 0.8rem 1.2rem; background: hsla(0, 0%, 0%, 0.2); display: flex; align-items: center; }
+
+/* Verbose Elements style matched to Vault */
+.mini-elements-verbose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mini-elements-verbose .tag-badge {
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
 .el-dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px currentColor; }
-.rarity-text-mini { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: rgba(255, 255, 255, 0.2); }
 
 /* =======================================================
    MODALS & OVERLAYS
@@ -632,48 +678,47 @@
 /* =======================================================
    RARITY & ELEMENT THEMES
    ======================================================= */
+/* Rarity Themes */
 .rarity-common .card-accent { background: #9e9e9e; }
-.rarity-common .rarity-dot { color: #9e9e9e; }
 .rarity-common.rarity-badge { background: rgba(158, 158, 158, 0.2); color: #9e9e9e; }
 
 .rarity-uncommon .card-accent { background: #4caf50; }
-.rarity-uncommon .rarity-dot { color: #4caf50; }
 .rarity-uncommon.rarity-badge { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
 
 .rarity-rare .card-accent { background: #2196f3; }
-.rarity-rare .rarity-dot { color: #2196f3; }
 .rarity-rare.rarity-badge { background: rgba(33, 150, 243, 0.2); color: #2196f3; }
 
 .rarity-epic .card-accent { background: #9c27b0; }
-.rarity-epic .rarity-dot { color: #9c27b0; }
 .rarity-epic.rarity-badge { background: rgba(156, 39, 176, 0.2); color: #9c27b0; }
 
 .rarity-legendary .card-accent { background: #ff9800; }
-.rarity-legendary .rarity-dot { color: #ff9800; }
 .rarity-legendary.rarity-badge { background: rgba(255, 152, 0, 0.2); color: #ff9800; }
 
 .rarity-mythic .card-accent { background: #ff3d00; }
-.rarity-mythic .rarity-dot { color: #ff3d00; }
 .rarity-mythic.rarity-badge { background: rgba(255, 61, 0, 0.2); color: #ff3d00; }
 
-.el-dot.fire, .el-badge.fire { color: #ff5252; background-color: #ff5252; }
-.el-dot.water, .el-badge.water { color: #40c4ff; background-color: #40c4ff; }
-.el-dot.earth, .el-badge.earth { color: #ffb74d; background-color: #ffb74d; }
-.el-dot.wind, .el-badge.wind { color: #69f0ae; background-color: #69f0ae; }
-.el-dot.light, .el-badge.light { color: #ffff8d; background-color: #ffff8d; }
-.el-dot.dark, .el-badge.dark { color: #e1bee7; background-color: #e1bee7; }
-.el-dot.arcane, .el-badge.arcane { color: #b388ff; background-color: #b388ff; }
+/* Element Colors matched to Vault */
+.tag-badge.element.element-fire { background-color: #e25822; color: #fff; }
+.tag-badge.element.element-water { background-color: #1ca3ec; color: #fff; }
+.tag-badge.element.element-earth { background-color: #8b5a2b; color: #fff; }
+.tag-badge.element.element-celestial { background-color: #fceea7; color: #333; }
+.tag-badge.element.element-arcane { background-color: #8b00ff; color: #fff; }
+.tag-badge.element.element-dark-magic { background-color: #2a0845; color: #fff; }
+.tag-badge.element.element-air { background-color: #a0d2eb; color: #333; }
+.tag-badge.element.element-status { background-color: #77dd77; color: #333; }
+.tag-badge.element.element-physical { background-color: #b3b3b3; color: #fff; }
+.tag-badge.element.element-generic { background-color: #666666; color: #fff; }
 
 /* =======================================================
    RESPONSIVE DESIGN
    ======================================================= */
 @media (max-width: 1024px) {
-  .landing-header { padding: 1.5rem 2rem; }
-  .hero-title { font-size: 4rem; }
+  .landing-container .landing-header { padding: 1.5rem 2rem; }
+  .landing-container .hero-title { font-size: 4rem; }
 }
 
 @media (max-width: 768px) {
-  .landing-nav { display: none; }
+  .landing-container .landing-nav { display: none; }
   .roster-page-container .sidebar { display: none; }
   .roster-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .dashboard-analytics-bar { padding: 1rem; }

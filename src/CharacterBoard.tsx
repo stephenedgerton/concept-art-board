@@ -372,27 +372,36 @@ const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Cha
     >
       <div className="card-accent" />
       <div className="card-main">
-        <div className="card-row-top">
-          <span className="char-type-badge">
-            {char.type === 'Hero' ? <FiStar size={10} /> : <FiHexagon size={10} />}
-            {char.subtype}
-          </span>
-          <span className="rarity-dot" />
+        <div className="card-header-area">
+          <h3 className="char-name-mini">{char.name}</h3>
+          <div className="char-subtitle-mini">
+            <span className="char-subtype-inline">
+              {char.type === 'Hero' ? <FiStar size={10} /> : <FiHexagon size={10} />}
+              {char.subtype}
+            </span>
+            <span className="separator">•</span>
+            <span className="char-faction-inline">{char.faction}</span>
+          </div>
         </div>
-        <h3 className="char-name-mini">{char.name}</h3>
-        <p className="char-faction-mini">{char.faction}</p>
-        <div className="mini-details">
-          <div className="detail-tag"><FiUsers size={10} /> {char.race}</div>
-          <div className="detail-tag"><FiZap size={10} /> {char.visualPillar}</div>
-          <div className="detail-tag"><FiBox size={10} /> {char.baseMesh}</div>
+
+        <div className="traits-section">
+          <h4 className="section-label">TRAITS</h4>
+          <div className="mini-details">
+            <div className="detail-tag"><FiUsers size={10} /> {char.race} ({char.gender})</div>
+            {char.visualPillar && <div className="detail-tag"><FiZap size={10} /> {char.visualPillar}</div>}
+            {char.baseMesh && <div className="detail-tag"><FiBox size={10} /> {char.baseMesh}</div>}
+          </div>
         </div>
       </div>
       
       <div className="card-bottom-mini">
-        <div className="mini-elements">
-          {char.elements.map(el => <span key={el} className={`el-dot ${el.toLowerCase()}`} title={el} />)}
+        <div className="mini-elements-verbose">
+          {char.elements.map(el => (
+            <span key={el} className={`tag-badge element element-${el.toLowerCase().replace(/\s+/g, '-')}`}>
+              {el}
+            </span>
+          ))}
         </div>
-        <span className="rarity-text-mini">{char.rarity}</span>
       </div>
     </motion.div>
   );
@@ -402,14 +411,21 @@ const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Cha
 // Character Profile Modal
 // -------------------------------------------------------------------------------- //
 function CharacterDetailModal({ character, assets, onClose }: { character: Character, assets: ConceptArt[], onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<'all' | 'concept' | 'animation' | 'vfx'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'concept' | 'animation' | 'vfx' | 'ability'>('all');
   
   const filteredAssets = useMemo(() => {
-    if (activeTab === 'all') return assets;
+    if (activeTab === 'all') {
+      // Custom ordering: 1. Concept art, 2. Animations, 3. Effects (VFX), 4. Ability icons
+      return [...assets].sort((a, b) => {
+        const order = { 'concept-art': 1, 'animation': 2, 'vfx': 3, 'ability-icons': 4, 'references': 5 };
+        return (order[a.type] || 99) - (order[b.type] || 99);
+      });
+    }
     return assets.filter(a => {
       if (activeTab === 'concept') return a.type === 'concept-art';
       if (activeTab === 'animation') return a.type === 'animation';
       if (activeTab === 'vfx') return a.type === 'vfx';
+      if (activeTab === 'ability') return a.type === 'ability-icons';
       return true;
     });
   }, [assets, activeTab]);
@@ -441,6 +457,7 @@ function CharacterDetailModal({ character, assets, onClose }: { character: Chara
             <button className={activeTab === 'concept' ? 'active' : ''} onClick={() => setActiveTab('concept')}>Concept</button>
             <button className={activeTab === 'animation' ? 'active' : ''} onClick={() => setActiveTab('animation')}>Animations</button>
             <button className={activeTab === 'vfx' ? 'active' : ''} onClick={() => setActiveTab('vfx')}>VFX</button>
+            <button className={activeTab === 'ability' ? 'active' : ''} onClick={() => setActiveTab('ability')}>Ability Icons</button>
           </div>
           <div className="asset-display-grid scroll-area">
             {filteredAssets.length === 0 ? (
