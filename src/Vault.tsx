@@ -54,6 +54,8 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   });
 
   const [zoom, setZoom] = useState(1);
+  const [selectionBox, setSelectionBox] = useState<{ start: { x: number, y: number }, end: { x: number, y: number } } | null>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
@@ -100,6 +102,52 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!selectionBox) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setSelectionBox(prev => prev ? { ...prev, end: { x: e.clientX, y: e.clientY } } : null);
+
+      // Calculate intersection
+      const x1 = Math.min(selectionBox.start.x, e.clientX);
+      const y1 = Math.min(selectionBox.start.y, e.clientY);
+      const x2 = Math.max(selectionBox.start.x, e.clientX);
+      const y2 = Math.max(selectionBox.start.y, e.clientY);
+
+      const cards = document.querySelectorAll('.static-card');
+      const newSelected = new Set(selectedIds);
+      let changed = false;
+      
+      cards.forEach((card: any) => {
+        const rect = card.getBoundingClientRect();
+        const id = card.getAttribute('data-id');
+        if (!id) return;
+
+        const isIntersecting = !(rect.left > x2 || rect.right < x1 || rect.top > y2 || rect.bottom < y1);
+        
+        if (isIntersecting && !newSelected.has(id)) {
+          newSelected.add(id);
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        setSelectedIds(newSelected);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setSelectionBox(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [selectionBox, isSelectionMode, selectedIds]);
 
   const toggleFilter = (category: string, value: string) => {
     setFilters(prev => {
@@ -227,11 +275,27 @@ export default function Vault({ onBackToLanding }: VaultProps) {
     }
   };
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!isSelectionMode || e.button !== 0) return;
+
+    // Only start if clicking on the gallery container itself or the grid
+    const target = e.target as HTMLElement;
+    if (!target.closest('.gallery-container') || target.closest('button') || target.closest('select') || target.closest('input')) return;
+
+    e.preventDefault(); // Prevent native selection/marquee
+
+    setSelectionBox({
+      start: { x: e.clientX, y: e.clientY },
+      end: { x: e.clientX, y: e.clientY }
+    });
+  };
+
   return (
     <div
       className="app-container"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleGlobalDrop}
+      onMouseDown={handleMouseDown}
     >
       {healthError && (
         <div style={{
@@ -273,7 +337,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
       <aside className="sidebar">
         <div className="brand-container">
           <div className="brand">
-            <FiLayers /> ConceptVault
+            <img src="/backgrounds/logo_website_tab_32x32.png" alt="ArtNexus Logo" style={{ width: '24px', height: '24px', marginRight: '8px' }} /> ArtNexus
           </div>
           <button 
             className="back-home-btn" 
@@ -445,25 +509,39 @@ export default function Vault({ onBackToLanding }: VaultProps) {
             >
               <AnimatePresence mode="popLayout">
                 {filteredArtworks.map(art => (
-                  <StaticArtwork
-                    key={art.id}
-                    art={art}
-                    onDelete={() => handleDelete(art.id)}
-                    onClick={() => {
-                      if (isSelectionMode) toggleSelection(art.id);
-                      else setViewerArt(art);
-                    }}
-                    selected={selectedIds.has(art.id)}
-                    isSelectionMode={isSelectionMode}
-                    playOnHover={playOnHover}
-                    showTags={showTags}
-                  />
+                  <div key={art.id} className="static-card" data-id={art.id}>
+                    <StaticArtwork
+                      art={art}
+                      onDelete={() => handleDelete(art.id)}
+                      onClick={() => {
+                        if (isSelectionMode) toggleSelection(art.id);
+                        else setViewerArt(art);
+                      }}
+                      selected={selectedIds.has(art.id)}
+                      isSelectionMode={isSelectionMode}
+                      playOnHover={playOnHover}
+                      showTags={showTags}
+                    />
+                  </div>
                 ))}
               </AnimatePresence>
             </div>
           )}
         </section>
       </main>
+
+      {/* Selection Marquee */}
+      {selectionBox && (
+        <div 
+          className="selection-marquee"
+          style={{
+            left: Math.min(selectionBox.start.x, selectionBox.end.x),
+            top: Math.min(selectionBox.start.y, selectionBox.end.y),
+            width: Math.abs(selectionBox.start.x - selectionBox.end.x),
+            height: Math.abs(selectionBox.start.y - selectionBox.end.y),
+          }}
+        />
+      )}
 
       {/* Modals */}
       <AnimatePresence>

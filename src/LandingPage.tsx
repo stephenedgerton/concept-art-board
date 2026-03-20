@@ -25,7 +25,7 @@ export default function LandingPage({ onEnterVault, onEnterRoster }: LandingPage
       
       <header className="landing-header">
         <div className="landing-logo">
-          <FiLayers /> <span>ConceptVault</span>
+          <img src="/backgrounds/logo_website_tab_32x32.png" alt="ArtNexus Logo" style={{ width: '24px', height: '24px' }} /> <span>ArtNexus</span>
         </div>
         <nav className="landing-nav">
           <button className="nav-link-btn" onClick={onEnterRoster}>Unit Roster</button>
@@ -41,22 +41,18 @@ export default function LandingPage({ onEnterVault, onEnterRoster }: LandingPage
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
             className="hero-content"
           >
-            <motion.h1 
-              className="hero-title"
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.2, delay: 0.2 }}
+              style={{ marginBottom: '4rem' }}
             >
-              Creative <span className="text-gradient">Vision</span> Realized.
-            </motion.h1>
-            <motion.p 
-              className="hero-subtitle"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.5 }}
-            >
-              Organize, showcase, and optimize your concept art, animations, and VFX in one high-performance vault.
-            </motion.p>
+              <img 
+                src="/backgrounds/Fableborne_logo_1080.png" 
+                alt="Fableborne Logo" 
+                style={{ width: '100%', maxWidth: '600px', height: 'auto' }} 
+              />
+            </motion.div>
             
             <motion.div 
               className="hero-actions"
@@ -87,7 +83,7 @@ export default function LandingPage({ onEnterVault, onEnterRoster }: LandingPage
           <a href="#" title="Twitter"><FiTwitter /></a>
         </div>
         <div className="footer-copy">
-          &copy; {new Date().getFullYear()} ConceptVault. Modern Asset Management.
+          &copy; {new Date().getFullYear()} ArtNexus. Creative Intelligence.
         </div>
       </footer>
     </div>

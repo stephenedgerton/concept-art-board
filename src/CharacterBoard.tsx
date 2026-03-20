@@ -57,7 +57,7 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
-  const [sortBy, setSortBy] = useState<SortOption>('name-asc');
+  const [sortBy, setSortBy] = useState<SortOption>('rarity-desc');
   
   const [filters, setFilters] = useState<FilterState>({
     type: [], faction: [], race: [], gender: [],
@@ -215,7 +215,9 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
     <div className="roster-page-container">
       <aside className="sidebar">
         <div className="brand-container">
-          <div className="brand"><FiLayers /> RosterVault</div>
+          <div className="brand">
+            <img src="/backgrounds/logo_website_tab_32x32.png" alt="ArtNexus Logo" style={{ width: '24px', height: '24px', marginRight: '8px' }} /> ArtNexus
+          </div>
           <button className="back-home-btn" onClick={onBackToLanding} title="Back to Landing"><FiHome size={18} /></button>
         </div>
 
