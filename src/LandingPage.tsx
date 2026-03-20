@@ -79,7 +79,7 @@ export default function LandingPage({ onEnterVault, onEnterRoster }: LandingPage
 
       <footer className="landing-footer">
         <div className="footer-socials">
-          <a href="#" title="GitHub"><FiGithub /></a>
+          <a href="https://github.com/stephenedgerton/concept-art-board" target="_blank" rel="noopener noreferrer" title="GitHub"><FiGithub /></a>
           <a href="#" title="Twitter"><FiTwitter /></a>
         </div>
         <div className="footer-copy">
