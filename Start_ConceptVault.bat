@@ -15,6 +15,7 @@ call npm install
 set CONCEPT_DATA_DIR=Z:\Shared\Pixion Games\01_Fableborne\011_Game\Content\Characters\Concept_Vault_Assets\data
 set CONCEPT_UPLOADS_DIR=Z:\Shared\Pixion Games\01_Fableborne\011_Game\Content\Characters\Concept_Vault_Assets\uploads
 set CONCEPT_BACKGROUNDS_DIR=Z:\Shared\Pixion Games\01_Fableborne\011_Game\Content\Characters\Concept_Vault_Assets\backgrounds
+set CONCEPT_PORTRAITS_DIR=Z:\Shared\Pixion Games\01_Fableborne\011_Game\Content\Characters\Concept_Vault_Assets\portraits
 :: -----------------------------
 
 echo.

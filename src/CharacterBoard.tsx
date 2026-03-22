@@ -360,10 +360,28 @@ function AnalyticsGroup({ title, data, icon }: { title: string, data: Record<str
   );
 }
 
+// Helper to get portrait URL from character name
+const getPortraitUrl = (name: string) => {
+  const cleanName = name.replace(/\s+/g, '');
+  // Mapping for names that might be different
+  const specialMappings: Record<string, string> = {
+    'BlueOrbConjurer': 'BlueOrbConjurer',
+    'DarkSorcerer': 'DarkSorcerer',
+    'ArmsDealer': 'ArmsCollector',
+    'ArmsCollector': 'ArmsCollector'
+  };
+  
+  const finalName = specialMappings[cleanName] || cleanName;
+  return `/portraits/Illustration_${finalName}_Portrait.png`;
+};
+
 // -------------------------------------------------------------------------------- //
 // Memoized Roster Card
 // -------------------------------------------------------------------------------- //
 const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Character, onClick: () => void }) {
+  const [imgError, setImgError] = useState(false);
+  const portraitUrl = getPortraitUrl(char.name);
+
   return (
     <motion.div 
       className={`roster-mini-card rarity-${char.rarity.toLowerCase().replace(/\s+/g, '-')}`}
@@ -373,6 +391,19 @@ const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Cha
       onClick={onClick}
     >
       <div className="card-accent" />
+      
+      {!imgError && (
+        <div className="card-portrait-bg">
+          <img 
+            src={portraitUrl} 
+            alt="" 
+            onError={() => setImgError(true)}
+            className="portrait-img"
+          />
+          <div className="portrait-gradient" />
+        </div>
+      )}
+
       <div className="card-main">
         <div className="card-header-area">
           <h3 className="char-name-mini">{char.name}</h3>
