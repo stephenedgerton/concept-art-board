@@ -51,9 +51,11 @@ interface CostRecord {
 
 interface ProductionDashboardProps {
   onBackToLanding: () => void;
+  privacyMode: boolean;
+  onTogglePrivacy: () => void;
 }
 
-export default function ProductionDashboard({ onBackToLanding }: ProductionDashboardProps) {
+export default function ProductionDashboard({ onBackToLanding, privacyMode, onTogglePrivacy }: ProductionDashboardProps) {
   const [data, setData] = useState<CostRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [budget, setBudget] = useState<number>(108000); // 12 * 9000
@@ -470,7 +472,8 @@ export default function ProductionDashboard({ onBackToLanding }: ProductionDashb
   }, [data, budget, targetCount, selectedFaction, selectedRarity, selectedYear, includeDevCosts]);
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    return <span className={privacyMode ? 'privacy-blur' : ''}>{formatted}</span>;
   };
 
   if (loading) return <div className="prod-dashboard-loading"><div className="spinner" /></div>;
@@ -510,6 +513,16 @@ export default function ProductionDashboard({ onBackToLanding }: ProductionDashb
         )}
 
         <div className="prod-sidebar-filters">
+          <div className="prod-toggle-group">
+            <label>Privacy Mode</label>
+            <button 
+              className={`prod-toggle ${privacyMode ? 'active' : ''}`}
+              onClick={onTogglePrivacy}
+            >
+              <div className="toggle-thumb" />
+            </button>
+          </div>
+
           <div className="prod-toggle-group">
             <label>Include Dev Costs</label>
             <button 

@@ -10,6 +10,7 @@ export type ViewState = 'landing' | 'vault' | 'roster' | 'estimator' | 'dashboar
 
 export default function App() {
   const [view, setView] = useState<ViewState>('landing');
+  const [privacyMode, setPrivacyMode] = useState(false);
 
   return (
     <>
@@ -19,19 +20,33 @@ export default function App() {
           onEnterRoster={() => setView('roster')} 
           onEnterEstimator={() => setView('estimator')}
           onEnterDashboard={() => setView('dashboard')}
+          privacyMode={privacyMode}
+          onTogglePrivacy={() => setPrivacyMode(!privacyMode)}
         />
       )}
       {view === 'vault' && (
         <Vault onBackToLanding={() => setView('landing')} />
       )}
       {view === 'roster' && (
-        <CharacterBoard onBackToLanding={() => setView('landing')} />
+        <CharacterBoard 
+          onBackToLanding={() => setView('landing')} 
+          privacyMode={privacyMode}
+          onTogglePrivacy={() => setPrivacyMode(!privacyMode)}
+        />
       )}
       {view === 'estimator' && (
-        <Estimator onBackToLanding={() => setView('landing')} />
+        <Estimator 
+          onBackToLanding={() => setView('landing')} 
+          privacyMode={privacyMode}
+          onTogglePrivacy={() => setPrivacyMode(!privacyMode)}
+        />
       )}
       {view === 'dashboard' && (
-        <ProductionDashboard onBackToLanding={() => setView('landing')} />
+        <ProductionDashboard 
+          onBackToLanding={() => setView('landing')} 
+          privacyMode={privacyMode}
+          onTogglePrivacy={() => setPrivacyMode(!privacyMode)}
+        />
       )}
     </>
   );

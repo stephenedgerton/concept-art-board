@@ -51,6 +51,8 @@ type SortOption = 'name-asc' | 'name-desc' | 'rarity-desc' | 'faction-asc';
 
 interface CharacterBoardProps {
   onBackToLanding: () => void;
+  privacyMode: boolean;
+  onTogglePrivacy: () => void;
 }
 
 const RARITY_ORDER: Record<string, number> = {
@@ -65,7 +67,7 @@ const RARITY_ORDER: Record<string, number> = {
 // -------------------------------------------------------------------------------- //
 // Main Component
 // -------------------------------------------------------------------------------- //
-export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps) {
+export default function CharacterBoard({ onBackToLanding, privacyMode, onTogglePrivacy }: CharacterBoardProps) {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [allAssets, setAllAssets] = useState<ConceptArt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -345,6 +347,17 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
         </div>
 
         <div className="filter-group" style={{ padding: '0 1.5rem', marginBottom: '1.5rem' }}>
+          <div className="prod-toggle-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>PRIVACY MODE</span>
+            <button 
+              className={`prod-toggle ${privacyMode ? 'active' : ''}`}
+              onClick={onTogglePrivacy}
+              style={{ width: '40px', height: '20px' }}
+            >
+              <div className="toggle-thumb" style={{ width: '14px', height: '14px' }} />
+            </button>
+          </div>
+
           <div className="prod-toggle-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>INCLUDE DEV</span>
             <button 
@@ -432,6 +445,7 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
                   char={char}
                   onClick={() => setSelectedCharacter(char)}
                   includeDev={includeDevCosts}
+                  privacyMode={privacyMode}
                 />
               ))}
             </div>
@@ -456,6 +470,7 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
             })}
             onClose={() => setSelectedCharacter(null)}
             includeDev={includeDevCosts}
+            privacyMode={privacyMode}
           />
         )}
       </AnimatePresence>
@@ -505,7 +520,7 @@ const getPortraitUrl = (name: string) => {
 // -------------------------------------------------------------------------------- //
 // Development Time UI Component
 // -------------------------------------------------------------------------------- //
-function DevelopmentTimeUI({ cost, compact = false, includeDev = false }: { cost: CharacterCost, compact?: boolean, includeDev?: boolean }) {
+function DevelopmentTimeUI({ cost, compact = false, includeDev = false, privacyMode = false }: { cost: CharacterCost, compact?: boolean, includeDev?: boolean, privacyMode?: boolean }) {
   const stages = [
     { label: 'Concept', key: 'concept', color: '#e25822' },
     { label: 'Modelling', key: 'modelling', color: '#1ca3ec' },
@@ -516,7 +531,8 @@ function DevelopmentTimeUI({ cost, compact = false, includeDev = false }: { cost
 
   const formatCurrency = (val?: number) => {
     if (val === undefined || val === 0) return '';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    return <span className={privacyMode ? 'privacy-blur' : ''}>{formatted}</span>;
   };
 
   if (compact) {
@@ -524,33 +540,45 @@ function DevelopmentTimeUI({ cost, compact = false, includeDev = false }: { cost
     const hasPhases = cost.concept > 0 || cost.modelling > 0 || cost.animations > 0 || cost.vfx > 0 || cost.ui > 0;
     
     return (
-      <div className="development-mini" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem' }}>
-        <div className="production-segmented-bar">
+      <div className="development-mini" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.6rem', position: 'relative', zIndex: 50 }}>
+        {/* INLINE STYLE OVERRIDE FOR MAXIMUM VISIBILITY */}
+        <div style={{ 
+          display: 'flex', 
+          height: '12px', 
+          backgroundColor: 'rgba(255,255,255,0.15)', 
+          borderRadius: '100px', 
+          overflow: 'hidden', 
+          width: '100%', 
+          border: '1px solid rgba(255,255,255,0.2)',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.3)'
+        }}>
           {hasPhases ? stages.map(stage => {
             const value = cost[stage.key as keyof CharacterCost] as number;
             if (value <= 0) return null;
             return (
               <div 
                 key={stage.key}
-                className="production-bar-segment"
                 style={{ 
                   width: `${(value / Math.max(cost.total, 1)) * 100}%`,
-                  backgroundColor: stage.color
+                  backgroundColor: stage.color,
+                  height: '100%',
+                  minWidth: '2px',
+                  boxShadow: 'inset 0 0 5px rgba(0,0,0,0.2)'
                 }}
                 title={`${stage.label}: ${value}d`}
               />
             );
           }) : (
-            <div className="production-bar-segment" style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.2)' }} title="Bulk Cost Record" />
+            <div style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.2)', height: '100%' }} title="Bulk Cost Record" />
           )}
         </div>
         <div className="total-time-mini" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.5, letterSpacing: '0.02em' }}>{cost.total > 0 ? `${cost.total.toFixed(1)}d Pipeline` : 'External Asset'}</span>
+          <span style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6, letterSpacing: '0.02em', color: 'white' }}>{cost.total > 0 ? `${cost.total.toFixed(1)}d Pipeline` : 'External Asset'}</span>
           {displayCost ? <span className="cost-mini" style={{ color: includeDev ? 'hsl(var(--primary))' : '#10b981', fontSize: '0.85rem', fontWeight: 800 }}>{formatCurrency(displayCost)}</span> : null}
         </div>
         {includeDev && cost.devCost ? (
-          <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '-0.2rem' }}>
-            + {formatCurrency(cost.devCost)} Dev
+          <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '-0.3rem', fontWeight: 700 }}>
+            + {formatCurrency(cost.devCost)} Dev Integration
           </div>
         ) : null}
       </div>
@@ -566,7 +594,7 @@ function DevelopmentTimeUI({ cost, compact = false, includeDev = false }: { cost
         return (
           <div key={stage.key} className="time-row">
             <div className="time-label-group">
-              <span className="stage-label">{stage.label}</span>
+              <span className="stage-label">{stage.label === 'Animations' ? 'Animations (Standard Set)' : stage.label}</span>
               <span className="stage-value">{value}d</span>
             </div>
             <div className="progress-bg">
@@ -602,7 +630,7 @@ function DevelopmentTimeUI({ cost, compact = false, includeDev = false }: { cost
 // -------------------------------------------------------------------------------- //
 // Memoized Roster Card
 // -------------------------------------------------------------------------------- //
-export const RosterCard = React.memo(function RosterCard({ char, onClick, includeDev = false }: { char: Character, onClick?: () => void, includeDev?: boolean }) {
+export const RosterCard = React.memo(function RosterCard({ char, onClick, includeDev = false, privacyMode = false }: { char: Character, onClick?: () => void, includeDev?: boolean, privacyMode?: boolean }) {
   const [imgError, setImgError] = useState(false);
   const portraitUrl = getPortraitUrl(char.name);
 
@@ -653,7 +681,7 @@ export const RosterCard = React.memo(function RosterCard({ char, onClick, includ
         {char.cost && (
           <div className="development-section-mini">
             <h4 className="section-label">PRODUCTION</h4>
-            <DevelopmentTimeUI cost={char.cost} compact includeDev={includeDev} />
+            <DevelopmentTimeUI cost={char.cost} compact includeDev={includeDev} privacyMode={privacyMode} />
           </div>
         )}
       </div>
@@ -674,7 +702,7 @@ export const RosterCard = React.memo(function RosterCard({ char, onClick, includ
 // -------------------------------------------------------------------------------- //
 // Character Profile Modal
 // -------------------------------------------------------------------------------- //
-function CharacterDetailModal({ character, assets, onClose, includeDev = false }: { character: Character, assets: ConceptArt[], onClose: () => void, includeDev?: boolean }) {
+function CharacterDetailModal({ character, assets, onClose, includeDev = false, privacyMode = false }: { character: Character, assets: ConceptArt[], onClose: () => void, includeDev?: boolean, privacyMode?: boolean }) {
   const [activeTab, setActiveTab] = useState<'all' | 'concept' | 'animation' | 'vfx' | 'ability'>('all');
   
   const filteredAssets = useMemo(() => {
@@ -715,7 +743,7 @@ function CharacterDetailModal({ character, assets, onClose, includeDev = false }
             {character.cost && (
               <div className="info-block">
                 <label>Production Breakdown</label>
-                <DevelopmentTimeUI cost={character.cost} includeDev={includeDev} />
+                <DevelopmentTimeUI cost={character.cost} includeDev={includeDev} privacyMode={privacyMode} />
               </div>
             )}
             

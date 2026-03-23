@@ -15,9 +15,11 @@ interface HistoricalCharacter extends Character {
 
 interface EstimatorProps {
   onBackToLanding: () => void;
+  privacyMode: boolean;
+  onTogglePrivacy: () => void;
 }
 
-export default function Estimator({ onBackToLanding }: EstimatorProps) {
+export default function Estimator({ onBackToLanding, privacyMode, onTogglePrivacy }: EstimatorProps) {
   const [historicalData, setHistoricalData] = useState<HistoricalCharacter[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -247,7 +249,8 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
 
   const formatCurrency = (val?: number) => {
     if (val === undefined || val === 0) return '$0';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    return <span className={privacyMode ? 'privacy-blur' : ''}>{formatted}</span>;
   };
 
   return (
@@ -260,6 +263,17 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
 
         <div className="filter-section scroll-area">
           <div className="filter-group">
+            <div className="prod-toggle-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>PRIVACY MODE</span>
+              <button 
+                className={`prod-toggle ${privacyMode ? 'active' : ''}`}
+                onClick={onTogglePrivacy}
+                style={{ width: '40px', height: '20px' }}
+              >
+                <div className="toggle-thumb" style={{ width: '14px', height: '14px' }} />
+              </button>
+            </div>
+
             <div className="prod-toggle-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>INCLUDE DEV</span>
               <button 
@@ -474,7 +488,7 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
             </div>
             <div className="roster-grid">
               {estimate.similar.length > 0 ? estimate.similar.map((c, i) => (
-                <RosterCard key={`${c.name}-${i}`} char={c} includeDev={includeDevCost} />
+                <RosterCard key={`${c.name}-${i}`} char={c} includeDev={includeDevCost} privacyMode={privacyMode} />
               )) : <div className="empty-ref">No exact matches found. Showing generic estimate.</div>}
             </div>
           </section>

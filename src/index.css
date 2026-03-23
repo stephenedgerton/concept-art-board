@@ -111,3 +111,15 @@ img {
     transform: rotate(360deg);
   }
 }
+
+/* Privacy Mode Utilities */
+.privacy-blur {
+  filter: blur(8px);
+  transition: filter 0.3s ease;
+  user-select: none;
+  cursor: help;
+}
+
+.privacy-blur:hover {
+  filter: blur(0);
+}

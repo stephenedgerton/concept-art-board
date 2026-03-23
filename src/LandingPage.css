@@ -587,20 +587,28 @@
 }
 
 .card-accent { height: 4px; width: 100%; background: #9e9e9e; position: relative; z-index: 2; }
-.card-main { padding: 1.2rem; flex: 1; position: relative; z-index: 1; }
+.card-main { 
+  padding: 1.2rem; 
+  flex: 1; 
+  position: relative; 
+  z-index: 1; 
+  display: flex;
+  flex-direction: column;
+}
 
 /* Refined Header area inside card */
 .card-header-area {
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+  min-height: 3.2rem; /* Reserve space for name and subtitle */
 }
 
-.char-name-mini { font-size: 1.2rem; font-weight: 800; margin: 0 0 0.2rem; line-height: 1.2; }
+.char-name-mini { font-size: 1.1rem; font-weight: 800; margin: 0 0 0.2rem; line-height: 1.2; }
 
 .char-subtitle-mini {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.4);
   font-weight: 600;
 }
@@ -624,9 +632,10 @@
 
 /* Traits Section */
 .traits-section {
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 85px; /* Reserve space for 3 lines of traits */
 }
 
 .section-label {
@@ -637,13 +646,13 @@
   margin-bottom: 0.6rem;
 }
 
-.mini-details { display: flex; flex-direction: column; gap: 0.5rem; }
+.mini-details { display: flex; flex-direction: column; gap: 0.4rem; }
 .detail-tag { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); display: flex; align-items: center; gap: 0.6rem; }
 .detail-tag svg { opacity: 0.2; }
 
 /* Development Time Section */
 .development-section-mini {
-  margin-top: 1rem;
+  margin-top: auto; /* Push to the bottom of the card area */
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }

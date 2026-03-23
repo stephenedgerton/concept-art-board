@@ -7,9 +7,14 @@ interface LandingPageProps {
   onEnterRoster: () => void;
   onEnterEstimator: () => void;
   onEnterDashboard: () => void;
+  privacyMode: boolean;
+  onTogglePrivacy: () => void;
 }
 
-export default function LandingPage({ onEnterVault, onEnterRoster, onEnterEstimator, onEnterDashboard }: LandingPageProps) {
+export default function LandingPage({ 
+  onEnterVault, onEnterRoster, onEnterEstimator, onEnterDashboard, 
+  privacyMode, onTogglePrivacy 
+}: LandingPageProps) {
   const backgroundImage = "/backgrounds/Frostbite_Background.jpg";
 
   return (
@@ -30,6 +35,16 @@ export default function LandingPage({ onEnterVault, onEnterRoster, onEnterEstima
           <img src="/backgrounds/logo_website_tab_32x32.png" alt="ArtNexus Logo" style={{ width: '24px', height: '24px' }} /> <span>ArtNexus</span>
         </div>
         <nav className="landing-nav">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginRight: '1rem', padding: '0.4rem 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: privacyMode ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Privacy</span>
+            <button 
+              className={`prod-toggle ${privacyMode ? 'active' : ''}`}
+              onClick={onTogglePrivacy}
+              style={{ width: '32px', height: '16px' }}
+            >
+              <div className="toggle-thumb" style={{ width: '10px', height: '10px', left: privacyMode ? 'calc(100% - 13px)' : '3px' }} />
+            </button>
+          </div>
           <button className="nav-link-btn" onClick={onEnterRoster}>Unit Roster</button>
           <button className="nav-btn" onClick={onEnterVault}>Launch App</button>
         </nav>
