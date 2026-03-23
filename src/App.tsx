@@ -3,9 +3,10 @@ import LandingPage from './LandingPage';
 import Vault from './Vault';
 import CharacterBoard from './CharacterBoard';
 import Estimator from './Estimator';
+import ProductionDashboard from './ProductionDashboard';
 import './App.css';
 
-export type ViewState = 'landing' | 'vault' | 'roster' | 'estimator';
+export type ViewState = 'landing' | 'vault' | 'roster' | 'estimator' | 'dashboard';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('landing');
@@ -17,6 +18,7 @@ export default function App() {
           onEnterVault={() => setView('vault')} 
           onEnterRoster={() => setView('roster')} 
           onEnterEstimator={() => setView('estimator')}
+          onEnterDashboard={() => setView('dashboard')}
         />
       )}
       {view === 'vault' && (
@@ -27,6 +29,9 @@ export default function App() {
       )}
       {view === 'estimator' && (
         <Estimator onBackToLanding={() => setView('landing')} />
+      )}
+      {view === 'dashboard' && (
+        <ProductionDashboard onBackToLanding={() => setView('landing')} />
       )}
     </>
   );

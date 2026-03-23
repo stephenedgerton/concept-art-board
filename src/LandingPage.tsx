@@ -1,14 +1,15 @@
 import { motion } from 'framer-motion';
-import { FiArrowRight, FiGithub, FiTwitter, FiUsers, FiBarChart2 } from 'react-icons/fi';
+import { FiArrowRight, FiGithub, FiTwitter, FiUsers, FiBarChart2, FiActivity } from 'react-icons/fi';
 import './LandingPage.css';
 
 interface LandingPageProps {
   onEnterVault: () => void;
   onEnterRoster: () => void;
   onEnterEstimator: () => void;
+  onEnterDashboard: () => void;
 }
 
-export default function LandingPage({ onEnterVault, onEnterRoster, onEnterEstimator }: LandingPageProps) {
+export default function LandingPage({ onEnterVault, onEnterRoster, onEnterEstimator, onEnterDashboard }: LandingPageProps) {
   const backgroundImage = "/backgrounds/Frostbite_Background.jpg";
 
   return (
@@ -71,10 +72,9 @@ export default function LandingPage({ onEnterVault, onEnterRoster, onEnterEstima
                 <button className="future-link active" onClick={onEnterEstimator}>
                   <FiBarChart2 /> <span>Cost Estimator</span>
                 </button>
-                <div className="future-link disabled" title="Coming Soon">
-                  <span>VFX Lab</span>
-                  <span className="badge">Soon</span>
-                </div>
+                <button className="future-link active" onClick={onEnterDashboard}>
+                  <FiActivity /> <span>Production Dashboard</span>
+                </button>
               </div>
             </motion.div>
           </motion.div>
