@@ -73,6 +73,7 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('rarity-desc');
+  const [includeDevCosts, setIncludeDevCosts] = useState(false);
   
   const [filters, setFilters] = useState<FilterState>({
     type: [], faction: [], race: [], gender: [],
@@ -343,6 +344,19 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
           </div>
         </div>
 
+        <div className="filter-group" style={{ padding: '0 1.5rem', marginBottom: '1.5rem' }}>
+          <div className="prod-toggle-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>INCLUDE DEV</span>
+            <button 
+              className={`prod-toggle ${includeDevCosts ? 'active' : ''}`}
+              onClick={() => setIncludeDevCosts(!includeDevCosts)}
+              style={{ width: '40px', height: '20px' }}
+            >
+              <div className="toggle-thumb" style={{ width: '14px', height: '14px' }} />
+            </button>
+          </div>
+        </div>
+
         <div className="filter-section scroll-area">
           {Object.entries(uniqueValues).map(([cat, options]) => (
             <div key={cat} className="filter-group">
@@ -417,6 +431,7 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
                   key={`${char.name}-${i}`}
                   char={char}
                   onClick={() => setSelectedCharacter(char)}
+                  includeDev={includeDevCosts}
                 />
               ))}
             </div>
@@ -440,6 +455,7 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
                      fileName.includes(charNameUnderscores);
             })}
             onClose={() => setSelectedCharacter(null)}
+            includeDev={includeDevCosts}
           />
         )}
       </AnimatePresence>
@@ -489,7 +505,7 @@ const getPortraitUrl = (name: string) => {
 // -------------------------------------------------------------------------------- //
 // Development Time UI Component
 // -------------------------------------------------------------------------------- //
-function DevelopmentTimeUI({ cost, compact = false }: { cost: CharacterCost, compact?: boolean }) {
+function DevelopmentTimeUI({ cost, compact = false, includeDev = false }: { cost: CharacterCost, compact?: boolean, includeDev?: boolean }) {
   const stages = [
     { label: 'Concept', key: 'concept', color: '#e25822' },
     { label: 'Modelling', key: 'modelling', color: '#1ca3ec' },
@@ -504,32 +520,44 @@ function DevelopmentTimeUI({ cost, compact = false }: { cost: CharacterCost, com
   };
 
   if (compact) {
+    const displayCost = includeDev ? cost.totalCost : cost.artCost;
+    const hasPhases = cost.concept > 0 || cost.modelling > 0 || cost.animations > 0 || cost.vfx > 0 || cost.ui > 0;
+    
     return (
-      <div className="development-mini">
-        <div className="segmented-bar">
-          {stages.map(stage => {
+      <div className="development-mini" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem' }}>
+        <div className="production-segmented-bar">
+          {hasPhases ? stages.map(stage => {
             const value = cost[stage.key as keyof CharacterCost] as number;
             if (value <= 0) return null;
             return (
               <div 
                 key={stage.key}
-                className="bar-segment"
+                className="production-bar-segment"
                 style={{ 
-                  width: `${(value / cost.total) * 100}%`,
+                  width: `${(value / Math.max(cost.total, 1)) * 100}%`,
                   backgroundColor: stage.color
                 }}
                 title={`${stage.label}: ${value}d`}
               />
             );
-          })}
+          }) : (
+            <div className="production-bar-segment" style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.2)' }} title="Bulk Cost Record" />
+          )}
         </div>
-        <div className="total-time-mini">
-          {cost.total.toFixed(1)}d
-          {cost.totalCost ? <span className="cost-mini"> ({formatCurrency(cost.totalCost)})</span> : null}
+        <div className="total-time-mini" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.5, letterSpacing: '0.02em' }}>{cost.total > 0 ? `${cost.total.toFixed(1)}d Pipeline` : 'External Asset'}</span>
+          {displayCost ? <span className="cost-mini" style={{ color: includeDev ? 'hsl(var(--primary))' : '#10b981', fontSize: '0.85rem', fontWeight: 800 }}>{formatCurrency(displayCost)}</span> : null}
         </div>
+        {includeDev && cost.devCost ? (
+          <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '-0.2rem' }}>
+            + {formatCurrency(cost.devCost)} Dev
+          </div>
+        ) : null}
       </div>
     );
   }
+
+  const displayTotal = includeDev ? cost.totalCost : cost.artCost;
 
   return (
     <div className="development-detailed">
@@ -552,11 +580,19 @@ function DevelopmentTimeUI({ cost, compact = false }: { cost: CharacterCost, com
           </div>
         );
       })}
-      <div className="total-time-row">
-        <span>Total Time & Cost</span>
+      
+      <div className="total-time-row" style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', opacity: 0.4, fontWeight: 800 }}>{includeDev ? 'Total Production' : 'Art Production'}</span>
+          <div className="total-val" style={{ fontSize: '1.4rem' }}>{formatCurrency(displayTotal)}</div>
+        </div>
         <div style={{ textAlign: 'right' }}>
-          <div className="total-val">{cost.total.toFixed(1)} Days</div>
-          {cost.totalCost ? <div className="total-cost-val">{formatCurrency(cost.totalCost)}</div> : null}
+          <div className="total-cost-val" style={{ opacity: 0.5 }}>{cost.total.toFixed(1)} Days</div>
+          {includeDev && cost.devCost ? (
+            <div style={{ fontSize: '0.7rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>
+              {formatCurrency(cost.devCost)} Dev Integration
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -566,7 +602,7 @@ function DevelopmentTimeUI({ cost, compact = false }: { cost: CharacterCost, com
 // -------------------------------------------------------------------------------- //
 // Memoized Roster Card
 // -------------------------------------------------------------------------------- //
-export const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Character, onClick?: () => void }) {
+export const RosterCard = React.memo(function RosterCard({ char, onClick, includeDev = false }: { char: Character, onClick?: () => void, includeDev?: boolean }) {
   const [imgError, setImgError] = useState(false);
   const portraitUrl = getPortraitUrl(char.name);
 
@@ -616,8 +652,8 @@ export const RosterCard = React.memo(function RosterCard({ char, onClick }: { ch
 
         {char.cost && (
           <div className="development-section-mini">
-            <h4 className="section-label">DEVELOPMENT</h4>
-            <DevelopmentTimeUI cost={char.cost} compact />
+            <h4 className="section-label">PRODUCTION</h4>
+            <DevelopmentTimeUI cost={char.cost} compact includeDev={includeDev} />
           </div>
         )}
       </div>
@@ -638,7 +674,7 @@ export const RosterCard = React.memo(function RosterCard({ char, onClick }: { ch
 // -------------------------------------------------------------------------------- //
 // Character Profile Modal
 // -------------------------------------------------------------------------------- //
-function CharacterDetailModal({ character, assets, onClose }: { character: Character, assets: ConceptArt[], onClose: () => void }) {
+function CharacterDetailModal({ character, assets, onClose, includeDev = false }: { character: Character, assets: ConceptArt[], onClose: () => void, includeDev?: boolean }) {
   const [activeTab, setActiveTab] = useState<'all' | 'concept' | 'animation' | 'vfx' | 'ability'>('all');
   
   const filteredAssets = useMemo(() => {
@@ -678,8 +714,8 @@ function CharacterDetailModal({ character, assets, onClose }: { character: Chara
             
             {character.cost && (
               <div className="info-block">
-                <label>Development Breakdown</label>
-                <DevelopmentTimeUI cost={character.cost} />
+                <label>Production Breakdown</label>
+                <DevelopmentTimeUI cost={character.cost} includeDev={includeDev} />
               </div>
             )}
             

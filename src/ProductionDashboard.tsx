@@ -117,7 +117,7 @@ export default function ProductionDashboard({ onBackToLanding }: ProductionDashb
         const rows = parseCSV(text);
         if (rows.length <= 1) return;
 
-        const headers = rows[0].map(h => h.toLowerCase());
+        const headers = rows[0].map(h => h.toLowerCase().trim());
         const findHeader = (keywords: string[]) => 
           headers.findIndex(h => keywords.every(k => h.includes(k)));
 
@@ -146,12 +146,18 @@ export default function ProductionDashboard({ onBackToLanding }: ProductionDashb
 
         const parsePrice = (val: string) => {
           if (!val) return 0;
-          return parseFloat(val.replace(/[$,]/g, '')) || 0;
+          let clean = val.replace(/[$,\s]/g, '');
+          // Handle accounting negative format: ($500) -> -500
+          if (clean.startsWith('(') && clean.endsWith(')')) {
+            clean = '-' + clean.slice(1, -1);
+          }
+          return parseFloat(clean) || 0;
         };
 
         const parseDate = (val: string) => {
           if (!val || val === '-') return null;
-          const parts = val.split(' ');
+          // Handle both "24 Jan 25" and "24-Jan-25"
+          const parts = val.replace(/-/g, ' ').split(' ');
           if (parts.length === 3) {
             const day = parseInt(parts[0]);
             const monthStr = parts[1].toLowerCase();

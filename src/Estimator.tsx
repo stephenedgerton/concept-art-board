@@ -26,15 +26,23 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
   const [rarity, setRarity] = useState('Rare');
   const [faction, setFaction] = useState('Monarchy');
   const [element, setElement] = useState('Physical');
-  const [abilities, setAbilities] = useState(3);
-  const [animations, setAnimations] = useState(5);
+  const [abilities, setAbilities] = useState(3); // Ability VFX
+  const [abilityIcons, setAbilityIcons] = useState(3);
+  const [statusIcons, setStatusIcons] = useState(0);
+  const [animations, setAnimations] = useState(8); 
   const [includeDevCost, setIncludeDevCost] = useState(false);
 
   // Filter Toggles
   const [filterSubtype, setFilterSubtype] = useState(true);
-  const [filterRarity, setFilterRarity] = useState(true);
+  const [filterRarity, setFilterRarity] = useState(false); // Default to unselected
   const [filterFaction, setFilterFaction] = useState(false);
   const [filterElement, setFilterElement] = useState(false);
+
+  // Sync Animations with Abilities & Subtype
+  useEffect(() => {
+    const baseCount = subtype.toLowerCase() === 'imperial' ? 4 : 5;
+    setAnimations(baseCount + abilities);
+  }, [abilities, subtype]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -211,13 +219,15 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
         totalCost: 0
       };
 
-      // Adjust for abilities and animations
+      // Adjust for abilities and icons
+      const totalIcons = abilityIcons + statusIcons;
       const abilityFactor = abilities / 3;
+      const iconFactor = totalIcons / 3;
       const animationFactor = animations / 6;
 
       avg.animations *= animationFactor;
       avg.vfx *= (abilityFactor + animationFactor) / 2;
-      avg.ui *= abilityFactor;
+      avg.ui *= iconFactor;
       
       avg.total = avg.concept + avg.modelling + avg.animations + avg.vfx + avg.ui;
 
@@ -232,7 +242,8 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
     }
 
     return { avg: { concept: 2, modelling: 4, animations: 3, vfx: 2, ui: 1, total: 12, totalCost: 5000 }, sampleSize: 0, similar: [] };
-  }, [historicalData, subtype, rarity, faction, element, abilities, animations, includeDevCost, filterSubtype, filterRarity, filterFaction, filterElement]);
+    }, [historicalData, subtype, rarity, faction, element, abilities, abilityIcons, statusIcons, animations, includeDevCost, filterSubtype, filterRarity, filterFaction, filterElement]);
+
 
   const formatCurrency = (val?: number) => {
     if (val === undefined || val === 0) return '$0';
@@ -243,22 +254,21 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
     <div className="roster-page-container">
       <aside className="sidebar">
         <div className="brand-container">
-          <div className="brand">ArtNexus Estimator</div>
+          <div className="brand">Character Estimator</div>
           <button className="back-home-btn" onClick={onBackToLanding}><FiArrowLeft /></button>
         </div>
 
         <div className="filter-section scroll-area">
           <div className="filter-group">
-            <div className="filter-header">
-              <h3>Include Dev Cost</h3>
-              <label className="toggle-switch mini">
-                <input 
-                  type="checkbox" 
-                  checked={includeDevCost} 
-                  onChange={e => setIncludeDevCost(e.target.checked)} 
-                />
-                <span className="slider"></span>
-              </label>
+            <div className="prod-toggle-group" style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>INCLUDE DEV</span>
+              <button 
+                className={`prod-toggle ${includeDevCost ? 'active' : ''}`}
+                onClick={() => setIncludeDevCost(!includeDevCost)}
+                style={{ width: '40px', height: '20px' }}
+              >
+                <div className="toggle-thumb" style={{ width: '14px', height: '14px' }} />
+              </button>
             </div>
           </div>
 
@@ -371,7 +381,7 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
           </div>
 
           <div className="filter-group">
-            <h3>Abilities & Icons</h3>
+            <h3>Ability VFX</h3>
             <div className="counter-group">
               <button onClick={() => setAbilities(Math.max(0, abilities - 1))}><FiMinus /></button>
               <span>{abilities}</span>
@@ -380,11 +390,46 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
           </div>
 
           <div className="filter-group">
-            <h3>Animations</h3>
+            <h3>Ability Icons</h3>
             <div className="counter-group">
-              <button onClick={() => setAnimations(Math.max(1, animations - 1))}><FiMinus /></button>
-              <span>{animations}</span>
-              <button onClick={() => setAnimations(animations + 1)}><FiPlus /></button>
+              <button onClick={() => setAbilityIcons(Math.max(0, abilityIcons - 1))}><FiMinus /></button>
+              <span>{abilityIcons}</span>
+              <button onClick={() => setAbilityIcons(abilityIcons + 1)}><FiPlus /></button>
+            </div>
+          </div>
+
+          <div className="filter-group">
+            <h3>Unique Status Icons</h3>
+            <div className="counter-group">
+              <button onClick={() => setStatusIcons(Math.max(0, statusIcons - 1))}><FiMinus /></button>
+              <span>{statusIcons}</span>
+              <button onClick={() => setStatusIcons(statusIcons + 1)}><FiPlus /></button>
+            </div>
+          </div>
+
+          <div className="filter-group">
+            <h3>Animations</h3>
+            <div className="anim-scope-guide sidebar-guide" style={{ marginBottom: '1rem' }}>
+              <div className="guide-title">Required Base Set:</div>
+              <div className="guide-items">
+                <span>• Idle, Run, Level Up, Death</span>
+                {subtype?.toLowerCase() !== 'imperial' && <span className="highlight-stun">• Stun (Required)</span>}
+                {subtype?.toLowerCase() === 'imperial' && <span className="skip-stun">• Stun (Not Required)</span>}
+              </div>
+              <div className="anim-calc-breakdown">
+                <div className="calc-row">
+                  <span>Base Set</span>
+                  <span>{subtype?.toLowerCase() === 'imperial' ? 4 : 5}</span>
+                </div>
+                <div className="calc-row">
+                  <span>Ability VFX</span>
+                  <span>+ {abilities}</span>
+                </div>
+                <div className="calc-total">
+                  <span>Total</span>
+                  <span>{animations}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -393,7 +438,7 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
       <main className="main-content">
         <header className="header" style={{ height: 'auto', padding: '2rem 2.5rem' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.8rem' }}>Development Estimate</h1>
+            <h1 style={{ margin: 0, fontSize: '1.8rem' }}>{includeDevCost ? 'Production Estimate' : 'Art Estimate'}</h1>
             <p style={{ color: 'rgba(255,255,255,0.4)', marginTop: '0.3rem' }}>
               Based on {estimate.sampleSize} historical {subtype}s with {rarity} rarity.
             </p>
@@ -409,6 +454,12 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
         </header>
 
         <div className="estimator-grid scroll-area" style={{ padding: '0 2.5rem 2.5rem' }}>
+          {includeDevCost && estimate.avg.devCost > 0 && (
+            <div style={{ marginBottom: '1.5rem', background: 'hsla(var(--primary) / 0.1)', padding: '1rem 1.5rem', borderRadius: '16px', border: '1px solid hsla(var(--primary) / 0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Includes estimated {formatCurrency(estimate.avg.devCost)} for Development Integration</span>
+              <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>Art Production: {formatCurrency(estimate.avg.artCost)}</span>
+            </div>
+          )}
           <section className="estimate-cards">
             <EstimateCard label="Concept Art" value={estimate.avg.concept} color="#e25822" />
             <EstimateCard label="3D Modelling" value={estimate.avg.modelling} color="#1ca3ec" />
@@ -423,7 +474,7 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
             </div>
             <div className="roster-grid">
               {estimate.similar.length > 0 ? estimate.similar.map((c, i) => (
-                <RosterCard key={`${c.name}-${i}`} char={c} />
+                <RosterCard key={`${c.name}-${i}`} char={c} includeDev={includeDevCost} />
               )) : <div className="empty-ref">No exact matches found. Showing generic estimate.</div>}
             </div>
           </section>
@@ -574,6 +625,52 @@ export default function Estimator({ onBackToLanding }: EstimatorProps) {
         .est-bar { height: 4px; background: rgba(255,255,255,0.05); border-radius: 100px; overflow: hidden; }
         .est-fill { height: 100%; border-radius: 100px; }
         
+        .anim-scope-guide.sidebar-guide {
+          margin-top: 1rem;
+          padding: 1rem;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .guide-title { font-size: 0.6rem; text-transform: uppercase; font-weight: 800; color: rgba(255, 255, 255, 0.25); margin-bottom: 0.4rem; letter-spacing: 0.05em; }
+        .guide-items { display: flex; flex-direction: column; gap: 0.2rem; }
+        .guide-items span { font-size: 0.7rem; color: rgba(255, 255, 255, 0.5); font-weight: 600; }
+        .highlight-stun { color: #10b981 !important; }
+        .skip-stun { opacity: 0.3; text-decoration: line-through; }
+        .guide-instruction { 
+          margin: 0.8rem 0 0; 
+          font-size: 0.65rem; 
+          font-weight: 700; 
+          color: hsl(var(--primary));
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+        .anim-calc-breakdown {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+        .calc-row {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.4);
+        }
+        .calc-total {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.8rem;
+          font-weight: 800;
+          color: white;
+          margin-top: 0.2rem;
+          padding-top: 0.4rem;
+          border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+        
         .historical-context { margin-top: 3rem; background: rgba(255,255,255,0.02); padding: 2rem; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); }
         .section-header { display: flex; align-items: center; gap: 0.8rem; font-weight: 800; text-transform: uppercase; font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-bottom: 1.5rem; }
         .reference-list { display: flex; flex-wrap: wrap; gap: 1rem; }
@@ -600,7 +697,7 @@ function EstimateCard({ label, value, color }: { label: string, value: number, c
         <motion.div 
           className="est-fill"
           initial={{ width: 0 }}
-          animate={{ width: `${Math.min(100, (value / 10) * 100)}%` }}
+          animate={{ width: `${Math.min(100, (value / 15) * 100)}%` }}
           style={{ backgroundColor: color }}
         />
       </div>
