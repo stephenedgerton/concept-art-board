@@ -59,7 +59,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
   const [data, setData] = useState<CostRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [budget, setBudget] = useState<number>(108000); // 12 * 9000
-  const [targetCount, setTargetCount] = useState<number>(50);
+  const [targetCount, setTargetCount] = useState<number>(24);
   const [showSettings, setShowSettings] = useState(false);
   const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
   const dashboardRef = React.useRef<HTMLDivElement>(null);
