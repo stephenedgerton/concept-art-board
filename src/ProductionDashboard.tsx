@@ -76,7 +76,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       });
       
       const link = document.createElement('a');
-      link.download = `Production_Report_${selectedYear}.png`;
+      link.download = `Production_Report.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (err) {
@@ -91,7 +91,6 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
   const [includeDevCosts, setIncludeDevCosts] = useState<boolean>(false);
 
   useEffect(() => {
-    // ... (fetch logic remains same)
     const fetchData = async () => {
       try {
         const res = await fetch('/data/Character_Cost_Breakdowns.csv');
@@ -149,7 +148,6 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
         const parsePrice = (val: string) => {
           if (!val) return 0;
           let clean = val.replace(/[$,\s]/g, '');
-          // Handle accounting negative format: ($500) -> -500
           if (clean.startsWith('(') && clean.endsWith(')')) {
             clean = '-' + clean.slice(1, -1);
           }
@@ -158,7 +156,6 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
 
         const parseDate = (val: string) => {
           if (!val || val === '-') return null;
-          // Handle both "24 Jan 25" and "24-Jan-25"
           const parts = val.replace(/-/g, ' ').split(' ');
           if (parts.length === 3) {
             const day = parseInt(parts[0]);
@@ -210,10 +207,8 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
 
   const filterOptions = useMemo(() => {
     const years = Array.from(new Set(data.map(d => d.year))).filter(Boolean).sort((a, b) => (b as number) - (a as number)) as number[];
-    // Ensure current year is always an option even if no data yet
     const currentYear = new Date().getFullYear();
     if (!years.includes(currentYear)) years.unshift(currentYear);
-
     return {
       factions: ['All', ...Array.from(new Set(data.map(d => d.faction))).filter(Boolean).sort()],
       rarities: ['All', ...Array.from(new Set(data.map(d => d.rarity))).filter(Boolean).sort()],
@@ -223,8 +218,6 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
 
   const insights = useMemo(() => {
     const lastYear = selectedYear - 1;
-
-    // Apply global filters (excluding year for the base set to allow trend comparison)
     const filteredBase = data.filter(r => {
       const factionMatch = selectedFaction === 'All' || r.faction === selectedFaction;
       const rarityMatch = selectedRarity === 'All' || r.rarity === selectedRarity;
@@ -233,14 +226,10 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
 
     const currentYearData = filteredBase.filter(r => r.year === selectedYear);
     const lastYearData = filteredBase.filter(r => r.year === lastYear);
-
-    // Cost Selection Logic
     const getCost = (r: CostRecord) => includeDevCosts ? r.totalCost : r.artCost;
 
-    // YTD Logic for current year
     const now = new Date();
     const isCurrentYear = selectedYear === now.getFullYear();
-    
     const lastYearDataYTD = isCurrentYear 
       ? lastYearData.filter(r => {
           if (!r.dateCompleted) return false;
@@ -250,34 +239,27 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
         })
       : lastYearData;
 
-    // Production Velocity
     const currentYearCount = currentYearData.length;
     const targetProgress = (currentYearCount / targetCount) * 100;
-    
-    // Last year stats (for trends - using YTD if current year)
-    const lastYearCount = lastYearData.length;
     const lastYearCountYTD = lastYearDataYTD.length;
     const countTrend = lastYearCountYTD === 0 ? 0 : (((currentYearCount - lastYearCountYTD) / lastYearCountYTD) * 100);
 
-    // Spend
     const currentYearSpend = currentYearData.reduce((sum, r) => sum + getCost(r), 0);
     const currentYearEstimate = currentYearData.reduce((sum, r) => sum + (includeDevCosts ? (r.artEstimate + r.devCost) : r.artEstimate), 0);
     const estimationAccuracy = currentYearEstimate > 0 ? (currentYearSpend / currentYearEstimate) * 100 : 100;
     const estimationDelta = currentYearSpend - currentYearEstimate;
-
-    // Estimation Status Logic
     const variance = estimationAccuracy - 100;
-    let estStatus: 'on-target' | 'under' | 'over' = 'on-target';
+
+    let estStatus: 'under' | 'on-target' | 'over' = 'on-target';
     let estLabel = 'On Target';
-    if (variance > 20) { estStatus = 'over'; estLabel = 'Over Budget'; }
-    else if (variance < -10) { estStatus = 'under'; estLabel = 'Under Estimated'; }
-    else { estStatus = 'on-target'; estLabel = 'High Precision'; }
+    if (variance > 25) { estStatus = 'over'; estLabel = 'Over Budget'; }
+    else if (variance > 10) { estStatus = 'on-target'; estLabel = 'Near Target'; }
+    else { estStatus = 'under'; estLabel = 'High Precision'; }
 
     const lastYearSpendYTD = lastYearDataYTD.reduce((sum, r) => sum + getCost(r), 0);
-    const spendTrend = lastYearSpendYTD === 0 ? 0 : (((currentYearSpend - lastYearSpendYTD) / lastYearSpendYTD) * 100);
     const lastYearTotalSpend = lastYearData.reduce((sum, r) => sum + getCost(r), 0);
+    const spendTrend = lastYearSpendYTD === 0 ? 0 : (((currentYearSpend - lastYearSpendYTD) / lastYearSpendYTD) * 100);
 
-    // Rarity Balance & ROI (Calculated against current selected year)
     const rarityStats: Record<string, { count: number, totalSpend: number, avgCost: number, lyAvgCost: number }> = {};
     currentYearData.forEach(r => {
       if (!r.rarity) return;
@@ -286,7 +268,6 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       rarityStats[r.rarity].totalSpend += getCost(r);
     });
 
-    // Last Year Rarity Stats for comparison
     const lyRarityGroups: Record<string, { total: number, count: number }> = {};
     lastYearData.forEach(r => {
       if (!r.rarity) return;
@@ -302,7 +283,6 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       }
     });
 
-    // Unit Type Stats (Subtype)
     const unitTypeStats: Record<string, { count: number, totalSpend: number, avgCost: number, lyAvgCost: number }> = {};
     currentYearData.forEach(r => {
       if (!r.subtype) return;
@@ -326,9 +306,6 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       }
     });
 
-    const budgetPercent = (currentYearSpend / budget) * 100;
-
-    // Monthly Spend & Units
     const monthlySpend: Record<string, number> = {};
     const monthlyUnits: Record<string, CostRecord[]> = {};
     currentYearData.forEach(r => {
@@ -340,134 +317,56 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       }
     });
 
-    // Efficiency Metrics (Scoped to Selected Year for accuracy)
-    const factionStats: Record<string, { total: number, count: number }> = {};
-    currentYearData.forEach(r => {
-      if (!r.faction) return;
-      if (!factionStats[r.faction]) factionStats[r.faction] = { total: 0, count: 0 };
-      factionStats[r.faction].total += getCost(r);
-      factionStats[r.faction].count += 1;
-    });
-
-    let mostExpensiveFactionName = 'N/A';
-    let mostExpensiveFactionCost = 0;
-    
-    Object.entries(factionStats).forEach(([name, stats]) => {
-      const avg = stats.total / stats.count;
-      if (avg > mostExpensiveFactionCost) {
-        mostExpensiveFactionCost = avg;
-        mostExpensiveFactionName = name;
-      }
-    });
-    
-    // Average Monthly Spend
     const monthsWithData = Object.keys(monthlySpend).length || 1;
     const avgMonthlySpend = currentYearSpend / monthsWithData;
-    
-    // Last Year Avg Monthly Spend (for trend)
     const lastYearMonths = Array.from(new Set(lastYearData.filter(r => r.dateCompleted).map(r => r.dateCompleted!.getMonth()))).length || 1;
     const lastYearAvgMonthlySpend = lastYearTotalSpend / lastYearMonths;
     const monthlySpendTrend = lastYearAvgMonthlySpend > 0 ? ((avgMonthlySpend - lastYearAvgMonthlySpend) / lastYearAvgMonthlySpend) * 100 : 0;
 
-    // Release Cadence & Trends
     const currentCadence = currentYearCount > 0 ? (30 / (currentYearCount / monthsWithData)) : 0;
+    const lastYearCount = lastYearData.length;
     const lastYearCadence = lastYearCount > 0 ? (30 / (lastYearCount / lastYearMonths)) : 0;
-    const cadenceTrend = (lastYearCadence > 0 && currentCadence > 0) ? ((lastYearCadence - currentCadence) / lastYearCadence) * 100 : 0; // Positive means faster
+    const cadenceTrend = (lastYearCadence > 0 && currentCadence > 0) ? ((lastYearCadence - currentCadence) / lastYearCadence) * 100 : 0;
 
-    // Projected Year End
     const projectedYearEndSpend = avgMonthlySpend * 12;
     const projectedYearEndUnits = Math.round((currentYearCount / monthsWithData) * 12);
 
-    // COST OF QUALITY (Tier-based comparison)
     const getTierAvg = (statsMap: Record<string, { totalSpend: number, count: number }>, tiers: string[]) => {
-      let total = 0;
-      let count = 0;
-      tiers.forEach(t => {
-        if (statsMap[t]) {
-          total += statsMap[t].totalSpend;
-          count += statsMap[t].count;
-        }
-      });
+      let total = 0, count = 0;
+      tiers.forEach(t => { if (statsMap[t]) { total += statsMap[t].totalSpend; count += statsMap[t].count; } });
       return count > 0 ? total / count : 0;
     };
 
     const highTierAvg = getTierAvg(rarityStats, ['Legendary', 'Epic']);
     const lowTierAvg = getTierAvg(rarityStats, ['Common', 'Uncommon']);
     const efficiencyMultiplier = (highTierAvg > 0 && lowTierAvg > 0) ? (highTierAvg / lowTierAvg) : 0;
-
-    // Last Year Multiplier (for trend)
     const lyHighTierAvg = getTierAvg(lyRarityGroups, ['Legendary', 'Epic']);
     const lyLowTierAvg = getTierAvg(lyRarityGroups, ['Common', 'Uncommon']);
     const lyEfficiencyMultiplier = (lyHighTierAvg > 0 && lyLowTierAvg > 0) ? (lyHighTierAvg / lyLowTierAvg) : 0;
-    
     const multiplierTrend = lyEfficiencyMultiplier > 0 ? ((efficiencyMultiplier - lyEfficiencyMultiplier) / lyEfficiencyMultiplier) * 100 : 0;
 
-    // Phase-Level Precision Tracking
     const getPhaseStats = (keyEst: keyof CostRecord, keyAct: keyof CostRecord) => {
       const totalEst = currentYearData.reduce((sum, r) => sum + (r[keyEst] as number || 0), 0);
       const totalAct = currentYearData.reduce((sum, r) => sum + (r[keyAct] as number || 0), 0);
-      const accuracy = totalEst > 0 ? (totalAct / totalEst) * 100 : 100;
-      return { totalEst, totalAct, accuracy, delta: totalAct - totalEst };
+      return { totalEst, totalAct, accuracy: totalEst > 0 ? (totalAct / totalEst) * 100 : 100, delta: totalAct - totalEst };
     };
 
-    const phaseAnalysis = {
-      concept: getPhaseStats('conceptEst', 'conceptAct'),
-      ui: getPhaseStats('uiEst', 'uiAct'),
-      model: getPhaseStats('modelEst', 'modelAct'),
-      anim: getPhaseStats('animEst', 'animAct'),
-      vfx: getPhaseStats('vfxEst', 'vfxAct'),
-    };
+    const phaseAnalysis = { concept: getPhaseStats('conceptEst', 'conceptAct'), ui: getPhaseStats('uiEst', 'uiAct'), model: getPhaseStats('modelEst', 'modelAct'), anim: getPhaseStats('animEst', 'animAct'), vfx: getPhaseStats('vfxEst', 'vfxAct') };
+    const mostVolatilePhase = Object.entries(phaseAnalysis).reduce((prev, curr) => (curr[1].accuracy > prev[1].accuracy) ? curr : prev);
 
-    // Find most volatile phase
-    const mostVolatilePhase = Object.entries(phaseAnalysis).reduce((prev, curr) => 
-      (curr[1].accuracy > prev[1].accuracy) ? curr : prev
-    );
-
-    // Strategic Insights Logic
     let recommendation = "Pipeline stable. Maintain current production standards.";
     let recommendationType: 'stable' | 'action' | 'warning' = 'stable';
-
-    if (mostVolatilePhase[1].accuracy > 125) {
-      recommendation = `${mostVolatilePhase[0].toUpperCase()} production is exceeding estimates by ${(mostVolatilePhase[1].accuracy - 100).toFixed(1)}%. Review scope or increase time allocation.`;
-      recommendationType = 'warning';
-    } else if (multiplierTrend > 15) {
-      recommendation = `Rarity premium is rising (${multiplierTrend.toFixed(1)}%). Consider standardizing Legendary visual scopes to stabilize costs.`;
-      recommendationType = 'action';
-    } else if (currentYearSpend > (budget * 1.1)) {
-      recommendation = "Total spend has exceeded annual budget limits. Urgent audit of remaining pipeline required.";
-      recommendationType = 'warning';
-    }
+    if (mostVolatilePhase[1].accuracy > 125) { recommendation = `${mostVolatilePhase[0].toUpperCase()} production is exceeding estimates by ${(mostVolatilePhase[1].accuracy - 100).toFixed(1)}%. Review scope.`; recommendationType = 'warning'; }
+    else if (multiplierTrend > 15) { recommendation = `Rarity premium is rising (${multiplierTrend.toFixed(1)}%). Standardize Legendary visual scopes.`; recommendationType = 'action'; }
+    else if (currentYearSpend > (budget * 1.1)) { recommendation = "Total spend has exceeded budget limits. Pipeline audit required."; recommendationType = 'warning'; }
 
     return {
-      currentYearCount,
-      targetProgress,
-      countTrend,
-      currentYearSpend,
-      currentYearEstimate,
-      estimationAccuracy,
-      estimationDelta,
-      variance,
-      estStatus,
-      estLabel,
-      spendTrend,
+      currentYearCount, targetProgress, countTrend, currentYearSpend, estimationAccuracy, estimationDelta, variance, estStatus, estLabel, spendTrend,
       rarityStats: Object.entries(rarityStats).sort((a, b) => b[1].count - a[1].count),
       unitTypeStats: Object.entries(unitTypeStats).sort((a, b) => b[1].count - a[1].count),
-      budgetPercent,
-      monthlySpend,
-      monthlyUnits,
-      avgMonthlySpend,
-      monthlySpendTrend,
-      currentCadence,
-      cadenceTrend,
-      projectedYearEndSpend,
-      projectedYearEndUnits,
-      mostExpensiveFactionName,
-      mostExpensiveFactionCost,
-      efficiencyMultiplier,
-      multiplierTrend,
-      phaseAnalysis,
-      recommendation,
-      recommendationType
+      budgetPercent: (currentYearSpend / budget) * 100,
+      monthlySpend, monthlyUnits, avgMonthlySpend, monthlySpendTrend, currentCadence, cadenceTrend, projectedYearEndSpend, projectedYearEndUnits,
+      efficiencyMultiplier, multiplierTrend, phaseAnalysis, recommendation, recommendationType
     };
   }, [data, budget, targetCount, selectedFaction, selectedRarity, selectedYear, includeDevCosts]);
 
@@ -551,23 +450,14 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       </aside>
 
       <main className="prod-main">
-        <header className="prod-header">
-          <div>
-            <h1>{includeDevCosts ? 'Production Intelligence' : 'Creative Intelligence'}</h1>
-            <p style={{ color: 'rgba(255,255,255,0.4)', margin: '0.5rem 0 0' }}>Strategic {includeDevCosts ? 'combined' : 'art-focused'} production dashboard</p>
-          </div>
+        <header className="prod-header" style={{ justifyContent: 'flex-end', marginBottom: '1rem' }}>
           <div className="prod-date-badge">
             <FiCalendar /> FY {selectedYear}
           </div>
         </header>
 
-        <div className="prod-baseline-note">
-          <FiActivity size={14} /> 
-          <span>Baseline: All comparisons based on {includeDevCosts ? 'Total Production' : 'Art-Only'} costs vs. previous FY.</span>
-        </div>
-
         <div className="prod-grid">
-          {/* NEW: High-Visibility Strategic Projection Section */}
+          {/* Strategic Projection Section */}
           <section className="prod-section-card full-width projection-hero">
             <div className="section-header" style={{ marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -760,7 +650,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                       className="phase-bar-fill"
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, insights.estimationAccuracy)}%` }}
-                      style={{ backgroundColor: insights.variance > 20 ? '#ef4444' : insights.variance < -10 ? '#10b981' : '#f59e0b' }}
+                      style={{ backgroundColor: insights.variance > 25 ? '#ef4444' : insights.variance > 10 ? '#f59e0b' : '#10b981' }}
                     />
                   </div>
                 </div>
@@ -776,7 +666,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                   <div key={phase} className="phase-stat-card">
                     <div className="phase-header">
                       <span className="phase-name">{phase}</span>
-                      <span className={`phase-acc-badge ${phaseVariance > 20 ? 'bad' : phaseVariance < -10 ? 'good' : 'perfect'}`}>
+                      <span className={`phase-acc-badge ${phaseVariance > 25 ? 'bad' : phaseVariance > 10 ? 'perfect' : 'good'}`}>
                         {phaseVariance >= 0 ? '+' : ''}{phaseVariance.toFixed(0)}%
                       </span>
                     </div>
@@ -786,7 +676,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                           className="phase-bar-fill"
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.min(100, stats.accuracy)}%` }}
-                          style={{ backgroundColor: phaseVariance > 20 ? '#ef4444' : phaseVariance < -10 ? '#10b981' : '#f59e0b' }}
+                          style={{ backgroundColor: phaseVariance > 25 ? '#ef4444' : phaseVariance > 10 ? '#f59e0b' : '#10b981' }}
                         />
                       </div>
                     </div>
