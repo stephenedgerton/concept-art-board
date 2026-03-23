@@ -1,14 +1,26 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  FiUsers, FiFilter, FiSearch, FiRefreshCw, FiChevronDown, FiX, 
-  FiHexagon, FiZap, FiTarget, FiBox, FiStar, FiHome, FiLayers, FiImage, FiVideo, FiPlay, FiMaximize2, FiShield, FiActivity, FiArrowUp, FiArrowDown
+  FiUsers, FiSearch, FiRefreshCw, FiX, 
+  FiHexagon, FiZap, FiBox, FiStar, FiHome, FiImage, FiVideo, FiPlay, FiMaximize2, FiShield, FiActivity
 } from 'react-icons/fi';
 import { getAllArtworks } from './lib/db';
 import type { ConceptArt } from './lib/db';
 import './LandingPage.css';
 
-interface Character {
+export interface CharacterCost {
+  concept: number;
+  modelling: number;
+  animations: number;
+  vfx: number;
+  ui: number;
+  total: number;
+  artCost?: number;
+  devCost?: number;
+  totalCost?: number;
+}
+
+export interface Character {
   name: string;
   faction: string;
   gender: string;
@@ -19,6 +31,9 @@ interface Character {
   visualPillar: string;
   baseMesh: string;
   rarity: string;
+  cost?: CharacterCost;
+  abilityCount?: number;
+  animationCount?: number;
 }
 
 interface FilterState {
@@ -68,20 +83,100 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
     setLoading(true);
     setError(null);
     try {
-      const [csvResponse, assets] = await Promise.all([
+      const [csvResponse, costResponse, assets] = await Promise.all([
         fetch('/data/characters.csv'),
+        fetch('/data/Character_Cost_Breakdowns.csv'),
         getAllArtworks()
       ]);
 
       if (!csvResponse.ok) throw new Error("Failed to load character data.");
       
-      const text = await csvResponse.text();
-      const rows = text.split('\n').filter(r => r.trim()).map(row => row.split(',').map(cell => cell.trim()));
+      // Improved CSV parser to handle quoted values with commas
+      const parseCSV = (text: string) => {
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        return lines.map(line => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') inQuotes = !inQuotes;
+            else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else current += char;
+          }
+          result.push(current.trim());
+          return result;
+        });
+      };
+
+      const charText = await csvResponse.text();
+      const charRows = parseCSV(charText);
+
+      const costData: Record<string, CharacterCost> = {};
+      if (costResponse.ok) {
+        const costText = await costResponse.text();
+        const costRows = parseCSV(costText);
+        if (costRows.length > 1) {
+          const headers = costRows[0].map(h => h.toLowerCase());
+          
+          const findHeader = (keywords: string[]) => 
+            headers.findIndex(h => keywords.every(k => h.includes(k)));
+
+          const idx = {
+            name: findHeader(['name']),
+            concept: findHeader(['concept', 'actual']),
+            modelling: findHeader(['model', 'actual']),
+            animations: findHeader(['animations', 'actual']),
+            vfx: findHeader(['vfx', 'actual']),
+            ui: findHeader(['ui', 'actual']),
+            artCost: findHeader(['art cost actual']),
+            devCost: findHeader(['dev cost actual']),
+            totalCost: findHeader(['total cost ($)'])
+          };
+
+          costRows.slice(1).forEach(row => {
+            const name = row[idx.name];
+            if (name) {
+              // Fuzzy name mapping for common mismatches
+              const cleanName = name.toLowerCase().replace(/\./g, '').trim();
+              const concept = parseFloat(row[idx.concept]) || 0;
+              const modelling = parseFloat(row[idx.modelling]) || 0;
+              const animations = parseFloat(row[idx.animations]) || 0;
+              const vfx = parseFloat(row[idx.vfx]) || 0;
+              const ui = parseFloat(row[idx.ui]) || 0;
+              
+              const parseCost = (val: string) => {
+                if (!val) return 0;
+                return parseFloat(val.replace(/[$,]/g, '')) || 0;
+              };
+
+              const artCost = parseCost(row[idx.artCost]);
+              const devCost = parseCost(row[idx.devCost]);
+              const totalCost = parseCost(row[idx.totalCost]);
+              
+              const data = {
+                concept, modelling, animations, vfx, ui,
+                total: concept + modelling + animations + vfx + ui,
+                artCost, devCost, totalCost
+              };
+              
+              costData[cleanName] = data;
+              
+              // Map common aliases
+              if (cleanName === 'sorceress') costData['sorcerer'] = data;
+              if (cleanName === 'arms dealer') costData['arms collector'] = data;
+              if (cleanName.includes('enchantress')) costData['orb structure'] = data;
+            }
+          });
+        }
+      }
       
-      if (rows.length < 2) {
+      if (charRows.length < 2) {
         setCharacters([]);
       } else {
-        const headers = rows[0].map(h => h.toLowerCase());
+        const headers = charRows[0].map(h => h.toLowerCase());
         const findIdx = (names: string[]) => headers.findIndex(h => names.includes(h));
         const idx = {
           name: findIdx(['name']), type: findIdx(['type']),
@@ -93,11 +188,24 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
           elements: findIdx(['elements', 'element types', 'element'])
         };
         
-        const data: Character[] = rows.slice(1).map(row => {
+        const data: Character[] = charRows.slice(1).map(row => {
           const getVal = (i: number) => (i !== -1 && row[i]) ? row[i] : '';
+          const name = getVal(idx.name);
           const type = getVal(idx.type);
+          
+          const cleanName = name.toLowerCase().trim();
+          
+          // Count assets
+          const charAssets = assets.filter(a => {
+            const fileName = a.name.toLowerCase();
+            return a.tags.characterName === name || fileName.includes(cleanName);
+          });
+          
+          const abilityCount = charAssets.filter(a => a.type === 'ability-icons').length;
+          const animationCount = charAssets.filter(a => a.type === 'animation').length;
+
           return {
-            name: getVal(idx.name),
+            name,
             type,
             subtype: getVal(idx.subtype) || (type === 'Hero' ? 'Hero' : ''),
             visualPillar: getVal(idx.visualPillar),
@@ -106,7 +214,10 @@ export default function CharacterBoard({ onBackToLanding }: CharacterBoardProps)
             faction: getVal(idx.faction),
             race: getVal(idx.race),
             gender: getVal(idx.gender),
-            elements: idx.elements !== -1 && row[idx.elements] ? row[idx.elements].split('|').map(e => e.trim()).filter(Boolean) : []
+            elements: idx.elements !== -1 && row[idx.elements] ? row[idx.elements].split('|').map(e => e.trim()).filter(Boolean) : [],
+            cost: costData[cleanName],
+            abilityCount,
+            animationCount
           };
         });
         setCharacters(data);
@@ -376,9 +487,86 @@ const getPortraitUrl = (name: string) => {
 };
 
 // -------------------------------------------------------------------------------- //
+// Development Time UI Component
+// -------------------------------------------------------------------------------- //
+function DevelopmentTimeUI({ cost, compact = false }: { cost: CharacterCost, compact?: boolean }) {
+  const stages = [
+    { label: 'Concept', key: 'concept', color: '#e25822' },
+    { label: 'Modelling', key: 'modelling', color: '#1ca3ec' },
+    { label: 'Animations', key: 'animations', color: '#8b00ff' },
+    { label: 'VFX', key: 'vfx', color: '#fceea7' },
+    { label: 'UI', key: 'ui', color: '#b3b3b3' }
+  ];
+
+  const formatCurrency = (val?: number) => {
+    if (val === undefined || val === 0) return '';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+  };
+
+  if (compact) {
+    return (
+      <div className="development-mini">
+        <div className="segmented-bar">
+          {stages.map(stage => {
+            const value = cost[stage.key as keyof CharacterCost] as number;
+            if (value <= 0) return null;
+            return (
+              <div 
+                key={stage.key}
+                className="bar-segment"
+                style={{ 
+                  width: `${(value / cost.total) * 100}%`,
+                  backgroundColor: stage.color
+                }}
+                title={`${stage.label}: ${value}d`}
+              />
+            );
+          })}
+        </div>
+        <div className="total-time-mini">
+          {cost.total.toFixed(1)}d
+          {cost.totalCost ? <span className="cost-mini"> ({formatCurrency(cost.totalCost)})</span> : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="development-detailed">
+      {stages.map(stage => {
+        const value = cost[stage.key as keyof CharacterCost] as number;
+        return (
+          <div key={stage.key} className="time-row">
+            <div className="time-label-group">
+              <span className="stage-label">{stage.label}</span>
+              <span className="stage-value">{value}d</span>
+            </div>
+            <div className="progress-bg">
+              <motion.div 
+                className="progress-fill"
+                initial={{ width: 0 }}
+                animate={{ width: `${(value / Math.max(cost.total, 1)) * 100}%` }}
+                style={{ backgroundColor: stage.color }}
+              />
+            </div>
+          </div>
+        );
+      })}
+      <div className="total-time-row">
+        <span>Total Time & Cost</span>
+        <div style={{ textAlign: 'right' }}>
+          <div className="total-val">{cost.total.toFixed(1)} Days</div>
+          {cost.totalCost ? <div className="total-cost-val">{formatCurrency(cost.totalCost)}</div> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------------------- //
 // Memoized Roster Card
 // -------------------------------------------------------------------------------- //
-const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Character, onClick: () => void }) {
+export const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Character, onClick?: () => void }) {
   const [imgError, setImgError] = useState(false);
   const portraitUrl = getPortraitUrl(char.name);
 
@@ -425,6 +613,13 @@ const RosterCard = React.memo(function RosterCard({ char, onClick }: { char: Cha
             {char.baseMesh && <div className="detail-tag"><FiBox size={10} /> {char.baseMesh}</div>}
           </div>
         </div>
+
+        {char.cost && (
+          <div className="development-section-mini">
+            <h4 className="section-label">DEVELOPMENT</h4>
+            <DevelopmentTimeUI cost={char.cost} compact />
+          </div>
+        )}
       </div>
       
       <div className="card-bottom-mini">
@@ -480,6 +675,20 @@ function CharacterDetailModal({ character, assets, onClose }: { character: Chara
             <div className="info-block"><label>Elements</label><div className="elements-list">
               {character.elements.map(el => <span key={el} className={`el-badge ${el.toLowerCase()}`}>{el}</span>)}
             </div></div>
+            
+            {character.cost && (
+              <div className="info-block">
+                <label>Development Breakdown</label>
+                <DevelopmentTimeUI cost={character.cost} />
+              </div>
+            )}
+            
+            <div className="info-block">
+              <label>Asset Counts</label>
+              <div className="val" style={{ fontSize: '0.85rem' }}>
+                {character.abilityCount || 0} Ability Icons • {character.animationCount || 0} Animations
+              </div>
+            </div>
           </div>
           <button className="modal-close-btn" onClick={onClose}><FiX /> Close Profile</button>
         </div>

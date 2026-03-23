@@ -621,6 +621,99 @@
 .detail-tag { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); display: flex; align-items: center; gap: 0.6rem; }
 .detail-tag svg { opacity: 0.2; }
 
+/* Development Time Section */
+.development-section-mini {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.development-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.segmented-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 100px;
+  overflow: hidden;
+  display: flex;
+}
+
+.bar-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.total-time-mini {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.cost-mini {
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+
+/* Detailed Development View */
+.development-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.time-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.time-label-group {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.stage-label { color: rgba(255, 255, 255, 0.5); }
+.stage-value { color: white; }
+
+.progress-bg {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 100px;
+}
+
+.total-time-row {
+  margin-top: 0.5rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.total-val {
+  color: hsl(var(--primary));
+  font-size: 0.9rem;
+}
+
 .card-bottom-mini { padding: 0.8rem 1.2rem; background: hsla(0, 0%, 0%, 0.2); display: flex; align-items: center; }
 
 /* Verbose Elements style matched to Vault */
