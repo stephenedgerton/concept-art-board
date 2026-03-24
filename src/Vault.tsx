@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiLink, FiHome, FiLayers } from 'react-icons/fi';
+import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiHome } from 'react-icons/fi';
 import { clsx } from 'clsx';
 import {
   addArtwork, getAllArtworks, deleteArtwork,
   getTags, addTagToCategory, updateArtwork, renameCategoryTag
 } from './lib/db';
-import type { ConceptArt, AssetType } from './lib/db';
+import type { ConceptArt, AssetType, CategoryDefinition } from './lib/db';
 import { createLowResVideo } from './lib/ffmpeg';
+import ViewerModal, { cleanName } from './ViewerModal';
 import './App.css';
-
-export const cleanName = (name: string) => name.replace(/_/g, ' ').replace(/\s*v\d+\s*$/i, '').trim();
 
 interface VaultProps {
   onBackToLanding: () => void;
@@ -55,7 +54,6 @@ export default function Vault({ onBackToLanding }: VaultProps) {
 
   const [zoom, setZoom] = useState(1);
   const [selectionBox, setSelectionBox] = useState<{ start: { x: number, y: number }, end: { x: number, y: number } } | null>(null);
-  const galleryRef = useRef<HTMLDivElement>(null);
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
@@ -75,7 +73,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
     return counts;
   }, [artworks, activeTab]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const healthRes = await fetch('/api/health').catch(() => { throw new Error("Connection failed"); });
       const health = await healthRes.json();
@@ -97,11 +95,11 @@ export default function Vault({ onBackToLanding }: VaultProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   useEffect(() => {
     if (!selectionBox) return;
@@ -119,7 +117,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
       const newSelected = new Set(selectedIds);
       let changed = false;
       
-      cards.forEach((card: any) => {
+      cards.forEach((card: Element) => {
         const rect = card.getBoundingClientRect();
         const id = card.getAttribute('data-id');
         if (!id) return;
@@ -147,7 +145,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [selectionBox, isSelectionMode, selectedIds]);
+  }, [selectionBox, selectedIds]);
 
   const toggleFilter = (category: string, value: string) => {
     setFilters(prev => {
@@ -168,7 +166,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   };
 
   // Define which tag categories are active for the active tab
-  const getActiveCategories = useCallback(() => {
+  const activeCategories = useMemo(() => {
     switch (activeTab) {
       case 'concept-art':
         return ['race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
@@ -184,8 +182,6 @@ export default function Vault({ onBackToLanding }: VaultProps) {
         return [];
     }
   }, [activeTab]);
-
-  const activeCategories = getActiveCategories();
 
   const filteredArtworks = useMemo(() => {
     const result = artworks.filter(art => {
@@ -220,7 +216,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
       if (sortBy === 'name-desc') return cleanName(b.name).localeCompare(cleanName(a.name));
       return 0;
     });
-  }, [artworks, filters, searchQuery, activeTab, sortBy, activeCategories]);
+  }, [artworks, filters, searchQuery, activeTab, sortBy]);
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this asset?')) {
@@ -395,11 +391,11 @@ export default function Vault({ onBackToLanding }: VaultProps) {
               counts={tagCounts[category] || {}}
               onToggle={val => toggleFilter(category, val)}
               onAddTag={async (newTag) => {
-                await addTagToCategory(category as any, newTag);
+                await addTagToCategory(category as keyof CategoryDefinition, newTag);
                 loadData();
               }}
               onRenameTag={async (oldTag, newTag) => {
-                await renameCategoryTag(category as any, oldTag, newTag);
+                await renameCategoryTag(category as keyof CategoryDefinition, oldTag, newTag);
                 loadData();
               }}
             />
@@ -454,7 +450,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
             </label>
             <select
               value={sortBy}
-              onChange={e => setSortBy(e.target.value as any)}
+              onChange={e => setSortBy(e.target.value as 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc')}
               className="form-control"
               style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto', backgroundColor: 'transparent' }}
             >
@@ -891,196 +887,6 @@ function UploadModal({
             {saving ? 'Saving...' : `Save ${files.length} Asset(s)`}
           </button>
         </form>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function ViewerModal({ art, categoryTags, onClose, onUpdateSuccess }: {
-  art: ConceptArt;
-  categoryTags: Record<string, string[]>;
-  onClose: () => void;
-  onUpdateSuccess: (art: ConceptArt) => void;
-}) {
-  const [url, setUrl] = useState<string>('');
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(art.name);
-  const [editTags, setEditTags] = useState(art.tags);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setUrl(art.compressedUrl || art.originalUrl);
-  }, [art.originalUrl, art.compressedUrl]);
-
-  useEffect(() => {
-    setEditName(art.name);
-    setEditTags(art.tags);
-  }, [art]);
-
-  const activeCategories = useMemo(() => {
-    switch (art.type) {
-      case 'concept-art': return ['race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
-      case 'animation': return ['baseMesh', 'animationType', 'abilityTags'];
-      case 'vfx': return ['element', 'vfxType'];
-      case 'ability-icons': return ['element', 'characterName'];
-      case 'references': return ['referenceType'];
-      default: return [];
-    }
-  }, [art.type]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateArtwork(art.id, { name: editName, tags: editTags });
-      onUpdateSuccess({ ...art, name: editName, tags: editTags });
-      setIsEditing(false);
-    } catch (err) {
-      console.error(err);
-      alert('Failed to save details');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const isVideo = art.type === 'animation' || art.type === 'vfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp4') || (url || art.originalUrl).toLowerCase().endsWith('.mov') || (url || art.originalUrl).toLowerCase().endsWith('.webm');
-
-  return (
-    <motion.div
-      className="viewer-modal"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div 
-        className="viewer-container"
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="viewer-header">
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button 
-              className="copy-link-btn" 
-              onClick={() => {
-                const fullUrl = window.location.origin + art.originalUrl;
-                navigator.clipboard.writeText(fullUrl);
-                alert('Link copied to clipboard!');
-              }}
-              title="Copy link to asset"
-            >
-              <FiLink /> Copy Link
-            </button>
-          </div>
-          <button className="close-button" onClick={onClose}><FiX size={32} /></button>
-        </div>
-
-        <div className="viewer-layout">
-          <div className="viewer-content">
-            <div className="viewer-image-container">
-              {isVideo ? (
-                <video src={url} controls autoPlay loop className="viewer-image" />
-              ) : (
-                <img src={url} alt={art.name} className="viewer-image" />
-              )}
-            </div>
-          </div>
-
-          <aside className="viewer-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
-            {isEditing ? (
-              <input
-                className="form-control"
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                style={{ marginBottom: '2rem', fontSize: '1.2rem', fontWeight: 600 }}
-              />
-            ) : (
-              <h2 className="viewer-title" style={{ marginBottom: '2rem' }}>{cleanName(art.name)}</h2>
-            )}
-
-            <div className="metadata-group">
-              <div className="metadata-label">Asset Type</div>
-              <div className="metadata-value" style={{ textTransform: 'capitalize' }}>
-                {art.type.replace('-', ' ')}
-              </div>
-            </div>
-
-            {activeCategories.map(category => {
-              // Multi-select categories (vfxType supports multiple values)
-              const isMultiSelect = category === 'vfxType';
-
-              if (isEditing) {
-                if (isMultiSelect) {
-                  const selectedVals: string[] = (editTags[category as keyof typeof editTags] as any) || [];
-                  const toggleVal = (opt: string) => {
-                    const arr = Array.isArray(selectedVals) ? selectedVals : [];
-                    const next = arr.includes(opt) ? arr.filter(v => v !== opt) : [...arr, opt];
-                    setEditTags({ ...editTags, [category]: next as any });
-                  };
-                  return (
-                    <div key={category} className="metadata-group">
-                      <div className="metadata-label">{category.replace(/([A-Z])/g, ' $1').trim()}</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.4rem' }}>
-                        {(categoryTags[category] || []).map(opt => (
-                          <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.85rem', padding: '0.2rem 0.5rem', borderRadius: '6px', background: selectedVals.includes(opt) ? 'hsl(var(--primary) / 0.25)' : 'hsl(var(--surface-hover))', border: selectedVals.includes(opt) ? '1px solid hsl(var(--primary))' : '1px solid var(--border)', color: selectedVals.includes(opt) ? 'hsl(var(--primary))' : 'var(--text)' }}>
-                            <input type="checkbox" checked={selectedVals.includes(opt)} onChange={() => toggleVal(opt)} style={{ display: 'none' }} />
-                            {opt}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={category} className="metadata-group">
-                    <div className="metadata-label">{category.replace(/([A-Z])/g, ' $1').trim()}</div>
-                    <select
-                      className="form-control"
-                      value={editTags[category as keyof typeof editTags] as string || ''}
-                      onChange={e => setEditTags({ ...editTags, [category]: e.target.value as any })}
-                    >
-                      <option value="">None</option>
-                      {(categoryTags[category] || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                  </div>
-                );
-              }
-
-              const value = art.tags[category as keyof typeof art.tags];
-              if (!value || (Array.isArray(value) && value.length === 0)) return null;
-              return (
-                <div key={category} className="metadata-group">
-                  <div className="metadata-label">{category.replace(/([A-Z])/g, ' $1').trim()}</div>
-                  <div className="metadata-value" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    {Array.isArray(value)
-                      ? value.map(v => <span key={v} className="tag-badge vfxType">{v}</span>)
-                      : value
-                    }
-                  </div>
-                </div>
-              );
-            })}
-
-            <div className="metadata-group" style={{ marginTop: '2rem' }}>
-              <div className="metadata-label">Added On</div>
-              <div className="metadata-value">
-                {new Date(art.createdAt).toLocaleDateString()} at {new Date(art.createdAt).toLocaleTimeString()}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
-              {isEditing ? (
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button className="submit-button" onClick={handleSave} disabled={saving} style={{ marginTop: 0, flex: 2 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
-                  <button className="clear-filters" onClick={() => setIsEditing(false)} style={{ flex: 1, textAlign: 'center' }}>Cancel</button>
-                </div>
-              ) : (
-                <button className="submit-button" onClick={() => setIsEditing(true)} style={{ marginTop: 0 }}>Edit Properties</button>
-              )}
-            </div>
-          </aside>
-        </div>
       </motion.div>
     </motion.div>
   );

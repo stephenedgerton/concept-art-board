@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fi';
 import { getAllArtworks } from './lib/db';
 import type { ConceptArt } from './lib/db';
+import ViewerModal from './ViewerModal';
 import './LandingPage.css';
 
 export interface CharacterCost {
@@ -74,6 +75,7 @@ export default function CharacterBoard({ onBackToLanding, privacyMode, onToggleP
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<ConceptArt | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('rarity-desc');
   const [includeDevCosts, setIncludeDevCosts] = useState(false);
   
@@ -469,8 +471,19 @@ export default function CharacterBoard({ onBackToLanding, privacyMode, onToggleP
                      fileName.includes(charNameUnderscores);
             })}
             onClose={() => setSelectedCharacter(null)}
+            onSelectAsset={setSelectedAsset}
             includeDev={includeDevCosts}
             privacyMode={privacyMode}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedAsset && (
+          <ViewerModal 
+            art={selectedAsset}
+            onClose={() => setSelectedAsset(null)}
+            readOnly={true}
           />
         )}
       </AnimatePresence>
@@ -702,7 +715,7 @@ export const RosterCard = React.memo(function RosterCard({ char, onClick, includ
 // -------------------------------------------------------------------------------- //
 // Character Profile Modal
 // -------------------------------------------------------------------------------- //
-function CharacterDetailModal({ character, assets, onClose, includeDev = false, privacyMode = false }: { character: Character, assets: ConceptArt[], onClose: () => void, includeDev?: boolean, privacyMode?: boolean }) {
+function CharacterDetailModal({ character, assets, onClose, onSelectAsset, includeDev = false, privacyMode = false }: { character: Character, assets: ConceptArt[], onClose: () => void, onSelectAsset: (asset: ConceptArt) => void, includeDev?: boolean, privacyMode?: boolean }) {
   const [activeTab, setActiveTab] = useState<'all' | 'concept' | 'animation' | 'vfx' | 'ability'>('all');
   
   const filteredAssets = useMemo(() => {
@@ -765,11 +778,40 @@ function CharacterDetailModal({ character, assets, onClose, includeDev = false, 
             <button className={activeTab === 'vfx' ? 'active' : ''} onClick={() => setActiveTab('vfx')}>VFX</button>
             <button className={activeTab === 'ability' ? 'active' : ''} onClick={() => setActiveTab('ability')}>Ability Icons</button>
           </div>
-          <div className="asset-display-grid scroll-area">
-            {filteredAssets.length === 0 ? (
+          <div className="scroll-area">
+            {assets.length === 0 ? (
               <div className="empty-assets"><FiImage size={40} /><p>No assets linked yet.</p></div>
+            ) : activeTab === 'all' ? (
+              <div className="asset-all-groups">
+                {[
+                  { id: 'concept-art', label: 'Concept Art' },
+                  { id: 'animation', label: 'Animations' },
+                  { id: 'vfx', label: 'VFX' },
+                  { id: 'ability-icons', label: 'Ability Icons' },
+                  { id: 'references', label: 'References' }
+                ].map(group => {
+                  const groupAssets = assets.filter(a => a.type === group.id);
+                  if (groupAssets.length === 0) return null;
+                  return (
+                    <section key={group.id} className="asset-category-section">
+                      <h3 className="asset-category-header">
+                        {group.label} <span>{groupAssets.length}</span>
+                      </h3>
+                      <div className="roster-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+                        {groupAssets.map(asset => (
+                          <AssetPreviewCard key={asset.id} asset={asset} onClick={() => onSelectAsset(asset)} />
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
             ) : (
-              filteredAssets.map(asset => <AssetPreviewCard key={asset.id} asset={asset} />)
+              <div className="roster-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
+                {filteredAssets.map(asset => (
+                  <AssetPreviewCard key={asset.id} asset={asset} onClick={() => onSelectAsset(asset)} />
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -781,7 +823,7 @@ function CharacterDetailModal({ character, assets, onClose, includeDev = false, 
 // -------------------------------------------------------------------------------- //
 // Memoized Asset Preview
 // -------------------------------------------------------------------------------- //
-const AssetPreviewCard = React.memo(function AssetPreviewCard({ asset }: { asset: ConceptArt }) {
+const AssetPreviewCard = React.memo(function AssetPreviewCard({ asset, onClick }: { asset: ConceptArt, onClick: () => void }) {
   const [isHovered, setIsHovered] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const url = asset.compressedUrl || asset.originalUrl;
@@ -795,7 +837,7 @@ const AssetPreviewCard = React.memo(function AssetPreviewCard({ asset }: { asset
   }, [isHovered, isVideo]);
 
   return (
-    <div className="asset-preview-card" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div className="asset-preview-card" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onClick={onClick} style={{ cursor: 'pointer' }}>
       <div className="asset-thumb">
         {isVideo ? (
           <>
@@ -806,7 +848,7 @@ const AssetPreviewCard = React.memo(function AssetPreviewCard({ asset }: { asset
           <img src={url} alt={asset.name} loading="lazy" />
         )}
         <div className="asset-overlay">
-          <button className="asset-action-btn" onClick={() => window.open(asset.originalUrl, '_blank')}><FiMaximize2 /></button>
+          <button className="asset-action-btn" onClick={(e) => { e.stopPropagation(); window.open(asset.originalUrl, '_blank'); }}><FiMaximize2 /></button>
         </div>
       </div>
       <div className="asset-info-mini">

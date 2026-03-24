@@ -808,15 +808,87 @@
 .asset-tabs button.active { color: white; }
 .asset-tabs button.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: hsl(var(--primary)); }
 
-.asset-display-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem; overflow-y: auto; }
-.asset-preview-card { background: hsl(var(--surface)); border: 1px solid hsl(var(--surface-hover)); border-radius: 16px; overflow: hidden; }
-.asset-thumb { aspect-ratio: 4/3; position: relative; background: #000; }
-.asset-thumb img, .asset-thumb video { width: 100%; height: 100%; object-fit: cover; }
-.asset-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+.asset-preview-card { 
+  background: hsl(var(--surface)); 
+  border: 1px solid hsl(var(--surface-hover)); 
+  border-radius: 16px; 
+  overflow: hidden; 
+  position: relative;
+  aspect-ratio: 1/1;
+}
+.asset-thumb { 
+  width: 100%;
+  height: 100%;
+  position: relative; 
+  background: #000; 
+  overflow-y: auto;
+  scrollbar-width: thin;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.asset-thumb img, .asset-thumb video { 
+  width: 100%; 
+  height: auto; 
+  min-height: 100%;
+  object-fit: contain; 
+}
+.asset-overlay { 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: rgba(0, 0, 0, 0.4); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  opacity: 0; 
+  transition: opacity 0.2s;
+  z-index: 10;
+}
 .asset-preview-card:hover .asset-overlay { opacity: 1; }
 .asset-action-btn { background: white; color: black; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.asset-info-mini { padding: 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
-.asset-name-mini { font-size: 0.75rem; color: rgba(255,255,255,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asset-info-mini { 
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.8rem; 
+  display: flex; 
+  align-items: center; 
+  gap: 0.6rem; 
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+  z-index: 5;
+  pointer-events: none;
+}
+.asset-name-mini { font-size: 0.75rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.asset-type-icon { color: rgba(255,255,255,0.7); display: flex; align-items: center; }
+
+/* Category Headers for All Tab */
+.asset-category-section {
+  margin-bottom: 3rem;
+}
+.asset-category-header {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.asset-category-header span {
+  background: hsla(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
 
 /* =======================================================
    RARITY & ELEMENT THEMES
