@@ -29,12 +29,97 @@ const DashboardTooltip = ({ title, content }: { title: string, content: string }
   );
 };
 
+const DepartmentRingChart = ({ data }: { data: { name: string, weight: number, lyWeight: number, trend: number, bottleneckIndex: number }[] }) => {
+  const radius = 100;
+  const stroke = 20;
+  const normalizedRadius = radius - stroke;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  
+  // Vault-inspired color mapping
+  const getDeptColor = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('concept')) return '#e25822'; // Fire/Concept
+    if (n.includes('model')) return '#8b5a2b';   // Earth/Model
+    if (n.includes('rig')) return '#8b00ff';     // Arcane/Rig
+    if (n.includes('anim')) return '#ff9800';    // Legendary/Animation
+    if (n.includes('vfx')) return '#1ca3ec';     // Water/VFX
+    if (n.includes('ui')) return '#fceea7';      // Celestial/UI
+    return 'hsla(var(--primary) / 0.5)';
+  };
+
+  let cumulativePercent = 0;
+  
+  return (
+    <div className="ring-chart-container">
+      <svg height={radius * 2} width={radius * 2} className="ring-chart-svg">
+        <circle
+          stroke="rgba(255,255,255,0.05)"
+          fill="transparent"
+          strokeWidth={stroke}
+          r={normalizedRadius}
+          cx={radius}
+          cy={radius}
+        />
+        {data.map((dept) => {
+          const strokeDashoffset = circumference - (dept.weight / 100) * circumference;
+          const rotation = (cumulativePercent / 100) * 360;
+          cumulativePercent += dept.weight;
+          
+          return (
+            <circle
+              key={dept.name}
+              stroke={dept.bottleneckIndex > 1.25 ? '#ef4444' : getDeptColor(dept.name)}
+              fill="transparent"
+              strokeWidth={stroke}
+              strokeDasharray={circumference + ' ' + circumference}
+              style={{ 
+                strokeDashoffset, 
+                transform: `rotate(${rotation - 90}deg)`, 
+                transformOrigin: 'center',
+                filter: dept.bottleneckIndex > 1.25 ? 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.4))' : 'none'
+              }}
+              r={normalizedRadius}
+              cx={radius}
+              cy={radius}
+            />
+          );
+        })}
+        <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" style={{ letterSpacing: '0.15em', opacity: 0.6 }}>
+          BUDGET
+        </text>
+      </svg>
+      <div className="ring-chart-legend">
+        {data.map((dept) => (
+          <div key={dept.name} className="legend-item">
+            <div className="legend-marker" style={{ backgroundColor: dept.bottleneckIndex > 1.25 ? '#ef4444' : getDeptColor(dept.name) }} />
+            <div className="legend-info">
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="legend-name">{dept.name}</span>
+                {dept.lyWeight > 0 && (
+                  <span className={`legend-trend ${dept.trend >= 0 ? 'up' : 'down'}`}>
+                    {dept.trend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
+                    {Math.abs(dept.trend).toFixed(1)}% vs LY
+                  </span>
+                )}
+              </div>
+              <span className="legend-value">{dept.weight.toFixed(1)}%</span>
+            </div>
+            {dept.bottleneckIndex > 1.25 && <span className="bottleneck-dot" title="Bottleneck" />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 interface CostRecord {
   name: string;
   type: string;
   subtype: string;
   rarity: string;
   faction: string;
+  race: string;
+  gender: string;
   totalCost: number;
   artCost: number;
   artEstimate: number;
@@ -43,8 +128,11 @@ interface CostRecord {
   conceptEst: number; conceptAct: number;
   uiEst: number; uiAct: number;
   modelEst: number; modelAct: number;
+  rigEst: number; rigAct: number;
   animEst: number; animAct: number;
   vfxEst: number; vfxAct: number;
+  overlapDays: number;
+  discount: number;
   dateCompleted: Date | null;
   year: number | null;
 }
@@ -128,6 +216,8 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
           subtype: findHeader(['unit type']),
           rarity: findHeader(['rarity']),
           faction: findHeader(['faction']),
+          race: findHeader(['race']),
+          gender: findHeader(['gender']),
           totalCost: findHeader(['total cost ($)']),
           artCost: findHeader(['art cost actual']),
           artEstimate: findHeader(['art cost estimate']),
@@ -142,9 +232,12 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
           animAct: findHeader(['animations actual']),
           vfxEst: findHeader(['vfx estimate']),
           vfxAct: findHeader(['vfx actual']),
+          rigEst: findHeader(['rig estimate']),
+          rigAct: findHeader(['rig actual']),
+          overlapDays: findHeader(['days overlapping']),
+          discount: findHeader(['discount']),
           date: findHeader(['art date completed'])
         };
-
         const parsePrice = (val: string) => {
           if (!val) return 0;
           let clean = val.replace(/[$,\s]/g, '');
@@ -176,6 +269,8 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
             subtype: row[idx.subtype],
             rarity: row[idx.rarity],
             faction: row[idx.faction],
+            race: row[idx.race] || 'Unknown',
+            gender: row[idx.gender] || 'Other',
             totalCost: parsePrice(row[idx.totalCost]),
             artCost: parsePrice(row[idx.artCost]),
             artEstimate: parsePrice(row[idx.artEstimate]),
@@ -190,6 +285,10 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
             animAct: parsePrice(row[idx.animAct]),
             vfxEst: parsePrice(row[idx.vfxEst]),
             vfxAct: parsePrice(row[idx.vfxAct]),
+            rigEst: parsePrice(row[idx.rigEst]),
+            rigAct: parsePrice(row[idx.rigAct]),
+            overlapDays: parsePrice(row[idx.overlapDays]),
+            discount: parsePrice(row[idx.discount]),
             dateCompleted: date,
             year: date ? date.getFullYear() : null
           };
@@ -351,8 +450,67 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       return { totalEst, totalAct, accuracy: totalEst > 0 ? (totalAct / totalEst) * 100 : 100, delta: totalAct - totalEst };
     };
 
-    const phaseAnalysis = { concept: getPhaseStats('conceptEst', 'conceptAct'), ui: getPhaseStats('uiEst', 'uiAct'), model: getPhaseStats('modelEst', 'modelAct'), anim: getPhaseStats('animEst', 'animAct'), vfx: getPhaseStats('vfxEst', 'vfxAct') };
+    const phaseAnalysis = { concept: getPhaseStats('conceptEst', 'conceptAct'), ui: getPhaseStats('uiEst', 'uiAct'), model: getPhaseStats('modelEst', 'modelAct'), rig: getPhaseStats('rigEst', 'rigAct'), anim: getPhaseStats('animEst', 'animAct'), vfx: getPhaseStats('vfxEst', 'vfxAct') };
     const mostVolatilePhase = Object.entries(phaseAnalysis).reduce((prev, curr) => (curr[1].accuracy > prev[1].accuracy) ? curr : prev);
+
+    // Roster Composition & Cost of Diversity
+    const genderStats: Record<string, { count: number, totalSpend: number }> = {};
+    const raceStats: Record<string, { count: number, totalSpend: number }> = {};
+    
+    currentYearData.forEach(r => {
+      const g = r.gender || 'Other';
+      const rc = r.race || 'Unknown';
+      
+      if (!genderStats[g]) genderStats[g] = { count: 0, totalSpend: 0 };
+      genderStats[g].count += 1;
+      genderStats[g].totalSpend += getCost(r);
+
+      if (!raceStats[rc]) raceStats[rc] = { count: 0, totalSpend: 0 };
+      raceStats[rc].count += 1;
+      raceStats[rc].totalSpend += getCost(r);
+    });
+
+    // Departmental Budget Weight (Intensity) & Bottleneck Index
+    const totalPhaseDays = Object.values(phaseAnalysis).reduce((sum, p) => sum + p.totalAct, 0);
+    
+    // LY Phase Analysis for comparison
+    const getLYPhaseStats = (keyEst: keyof CostRecord, keyAct: keyof CostRecord) => {
+      const totalAct = lastYearData.reduce((sum, r) => sum + (r[keyAct] as number || 0), 0);
+      return { totalAct };
+    };
+    const lyPhaseAnalysis = { 
+      concept: getLYPhaseStats('conceptEst', 'conceptAct'), 
+      ui: getLYPhaseStats('uiEst', 'uiAct'), 
+      model: getLYPhaseStats('modelEst', 'modelAct'), 
+      rig: getLYPhaseStats('rigEst', 'rigAct'), 
+      anim: getLYPhaseStats('animEst', 'animAct'), 
+      vfx: getLYPhaseStats('vfxEst', 'vfxAct') 
+    };
+    const totalLYPhaseDays = Object.values(lyPhaseAnalysis).reduce((sum, p) => sum + p.totalAct, 0);
+
+    const departmentalWeight = Object.entries(phaseAnalysis).map(([name, stats]) => {
+      const weight = totalPhaseDays > 0 ? (stats.totalAct / totalPhaseDays) * 100 : 0;
+      const lyWeight = totalLYPhaseDays > 0 ? (lyPhaseAnalysis[name as keyof typeof lyPhaseAnalysis].totalAct / totalLYPhaseDays) * 100 : 0;
+      return {
+        name,
+        weight,
+        lyWeight,
+        trend: lyWeight > 0 ? weight - lyWeight : 0,
+        accuracy: stats.accuracy,
+        bottleneckIndex: stats.accuracy / 100
+      };
+    }).sort((a, b) => b.weight - a.weight);
+
+    // Faction Analysis
+    const factionStats: Record<string, { total: number, count: number }> = {};
+    currentYearData.forEach(r => {
+      if (!r.faction) return;
+      if (!factionStats[r.faction]) factionStats[r.faction] = { total: 0, count: 0 };
+      factionStats[r.faction].total += getCost(r);
+      factionStats[r.faction].count += 1;
+    });
+    const factionAverages = Object.entries(factionStats).map(([name, s]) => ({ name, avg: s.total / s.count }));
+    const mostExpensiveFaction = factionAverages.length > 0 ? factionAverages.reduce((prev, curr) => (curr.avg > prev.avg) ? curr : prev) : { name: 'N/A', avg: 0 };
 
     let recommendation = "Pipeline stable. Maintain current production standards.";
     let recommendationType: 'stable' | 'action' | 'warning' = 'stable';
@@ -366,7 +524,12 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       unitTypeStats: Object.entries(unitTypeStats).sort((a, b) => b[1].count - a[1].count),
       budgetPercent: (currentYearSpend / budget) * 100,
       monthlySpend, monthlyUnits, avgMonthlySpend, monthlySpendTrend, currentCadence, cadenceTrend, projectedYearEndSpend, projectedYearEndUnits,
-      efficiencyMultiplier, multiplierTrend, phaseAnalysis, recommendation, recommendationType
+      efficiencyMultiplier, multiplierTrend, phaseAnalysis, recommendation, recommendationType,
+      genderStats: Object.entries(genderStats),
+      raceStats: Object.entries(raceStats).sort((a, b) => b[1].count - a[1].count),
+      departmentalWeight,
+      mostExpensiveFactionName: mostExpensiveFaction.name,
+      mostExpensiveFactionCost: mostExpensiveFaction.avg
     };
   }, [data, budget, targetCount, selectedFaction, selectedRarity, selectedYear, includeDevCosts]);
 
@@ -746,6 +909,64 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
               </div>
             </div>
             </section>
+
+            {/* NEW: Departmental Budget Weight & Bottlenecks */}
+            <section className="prod-section-card">
+              <div className="section-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <h2><FiPieChart /> Departmental Budget Weight</h2>
+                  <DashboardTooltip 
+                    title="Financial Intensity" 
+                    content="Shows which departments consume the largest portion of the actual production days. The 'Bottleneck Index' (indicated by a red dot) flags departments where actual time significantly exceeded estimates." 
+                  />
+                </div>
+              </div>
+              <DepartmentRingChart data={insights.departmentalWeight} />
+            </section>
+
+            {/* NEW: Roster Composition & Diversity */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+              <section className="prod-section-card">
+                <div className="section-header">
+                  <h2><FiUsers /> Roster Composition</h2>
+                </div>
+                <div className="composition-grid">
+                  <div className="comp-column">
+                    <h3 style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '1rem' }}>GENDER DISTRIBUTION</h3>
+                    {insights.genderStats.map(([label, s]) => (
+                      <div key={label} className="comp-item">
+                        <span className="comp-label">{label}</span>
+                        <span className="comp-value">{s.count} Units</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="comp-column">
+                    <h3 style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginBottom: '1rem' }}>RACE DISTRIBUTION</h3>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {insights.raceStats.map(([label, s]) => (
+                        <div key={label} className="race-pill">
+                          {label} <span>{s.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="prod-section-card">
+                <div className="section-header">
+                  <h2><FiDollarSign /> Cost of Diversity Analysis</h2>
+                </div>
+                <div className="diversity-cost-list">
+                  {insights.raceStats.slice(0, 4).map(([label, s]) => (
+                    <div key={label} className="diversity-cost-item">
+                      <span className="label">{label} Average</span>
+                      <span className="value">{formatCurrency(s.totalSpend / s.count)}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
 
             {/* NEW: Strategic Guidance Card */}
             <section className={`prod-section-card recommendation-card ${insights.recommendationType}`}>

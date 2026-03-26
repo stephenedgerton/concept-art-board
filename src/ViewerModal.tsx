@@ -32,7 +32,7 @@ export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateS
 
   const activeCategories = useMemo(() => {
     switch (art.type) {
-      case 'concept-art': return ['race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
+      case 'concept-art': return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
       case 'animation': return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx': return ['element', 'vfxType'];
       case 'ability-icons': return ['element', 'characterName'];

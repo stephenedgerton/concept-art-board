@@ -23,6 +23,8 @@ const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
 let storageError = null;
 
 const DEFAULT_CATEGORIES = {
+    race: ['Human', 'Orc', 'Elf', 'Undead', 'Construct', 'Elemental'],
+    gender: ['Male', 'Female', 'Other'],
     faction: ['Monarchy', 'Clan', 'Folk', 'Elementals', 'Constructs', 'Dark Magic Followers - artisans'],
     combatType: ['melee', 'ranged', 'magic', 'support'],
     baseMesh: ['human', 'thin human', 'mid human', 'stocky', 'great ape', 'mono boned'],
@@ -36,6 +38,9 @@ const DEFAULT_CATEGORIES = {
 
 async function initData() {
     try {
+        if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
+        if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+
         if (!existsSync(ARTWORKS_FILE)) await fs.writeFile(ARTWORKS_FILE, JSON.stringify([]));
         if (!existsSync(CATEGORIES_FILE)) await fs.writeFile(CATEGORIES_FILE, JSON.stringify(DEFAULT_CATEGORIES, null, 2));
     } catch (err) {
@@ -45,9 +50,6 @@ async function initData() {
 
 async function checkStorage() {
     try {
-        if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
-        if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-        
         await initData();
         
         if (storageError) console.log('Storage connection restored.');
@@ -199,12 +201,12 @@ app.delete('/api/artworks/:id', async (req, res) => {
             if (index !== -1) {
                 const art = artworks[index];
                 // Remove files
-                if (art.originalUrl) {
+                if (art.originalUrl && art.originalUrl.startsWith('/uploads/')) {
                     const filename = path.basename(art.originalUrl);
                     const file = path.join(UPLOADS_DIR, filename);
                     if (existsSync(file)) await fs.unlink(file);
                 }
-                if (art.compressedUrl) {
+                if (art.compressedUrl && art.compressedUrl.startsWith('/uploads/')) {
                     const filename = path.basename(art.compressedUrl);
                     const file = path.join(UPLOADS_DIR, filename);
                     if (existsSync(file)) await fs.unlink(file);

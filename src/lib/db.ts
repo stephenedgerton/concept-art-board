@@ -8,6 +8,7 @@ export interface ConceptArt {
     type: AssetType;
     tags: {
         race?: string;
+        gender?: string;
         faction?: string;
         combatType?: string;
         baseMesh?: string;
@@ -29,6 +30,7 @@ export interface ConceptArt {
 
 export interface CategoryDefinition {
     race: string[];
+    gender: string[];
     faction: string[];
     combatType: string[];
     baseMesh: string[];

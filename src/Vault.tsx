@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiHome } from 'react-icons/fi';
+import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiHome, FiRefreshCw } from 'react-icons/fi';
 import { clsx } from 'clsx';
 import {
   addArtwork, getAllArtworks, deleteArtwork,
@@ -34,6 +34,8 @@ export default function Vault({ onBackToLanding }: VaultProps) {
 
   const [playOnHover, setPlayOnHover] = useState(true);
   const [showTags, setShowTags] = useState(true);
+  const [showPortraits, setShowPortraits] = useState(false);
+  const [characterNames, setCharacterNames] = useState<string[]>([]);
 
   // Custom Tag Categories state
   const [categoryTags, setCategoryTags] = useState<Record<string, string[]>>({});
@@ -53,7 +55,24 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   });
 
   const [zoom, setZoom] = useState(1);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{ start: { x: number, y: number }, end: { x: number, y: number } } | null>(null);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/sync', { method: 'POST' });
+      if (!res.ok) throw new Error('Sync failed');
+      const data = await res.json();
+      alert(`Sync successful: ${data.count} assets discovered.`);
+      loadData();
+    } catch (err) {
+      console.error(err);
+      alert('Sync failed. Ensure the Z: drive is accessible.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
@@ -83,12 +102,36 @@ export default function Vault({ onBackToLanding }: VaultProps) {
         setHealthError(null);
       }
 
-      const [data, tagsData] = await Promise.all([
+      const [data, tagsData, charRes] = await Promise.all([
         getAllArtworks(),
-        getTags()
+        getTags(),
+        fetch('/data/characters.csv')
       ]);
       setArtworks(data);
-      setCategoryTags(tagsData as unknown as Record<string, string[]>);
+      
+      const newCategoryTags = { ...tagsData as unknown as Record<string, string[]> };
+      if (charRes.ok) {
+        const text = await charRes.text();
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        const names = lines.slice(1).map(line => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') inQuotes = !inQuotes;
+            else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else current += char;
+          }
+          result.push(current.trim());
+          return result[0];
+        }).filter(Boolean);
+        newCategoryTags.characterName = Array.from(new Set(names)).sort();
+        setCharacterNames(Array.from(new Set(names)));
+      }
+      setCategoryTags(newCategoryTags);
     } catch (error) {
       console.error('Failed to load art:', error);
       setHealthError("Unable to connect to Egnyte. Please start the Egnyte desktop app.");
@@ -159,7 +202,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
 
   const clearFilters = () => {
     setFilters({
-      race: [], faction: [], combatType: [], baseMesh: [],
+      gender: [], race: [], faction: [], combatType: [], baseMesh: [],
       element: [], unitType: [], rarity: [], animationType: [], vfxType: []
     });
     setSearchQuery('');
@@ -169,7 +212,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   const activeCategories = useMemo(() => {
     switch (activeTab) {
       case 'concept-art':
-        return ['race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
+        return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
       case 'animation':
         return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx':
@@ -348,6 +391,15 @@ export default function Vault({ onBackToLanding }: VaultProps) {
           <FiUpload /> Upload Assets
         </button>
 
+        <button 
+          className="upload-button" 
+          onClick={handleSync} 
+          disabled={isSyncing}
+          style={{ marginTop: '0.5rem', backgroundColor: 'var(--surface-hover)', borderColor: 'var(--border)' }}
+        >
+          <FiRefreshCw className={isSyncing ? 'spinner' : ''} /> {isSyncing ? 'Syncing...' : 'Sync Repository'}
+        </button>
+
         <div className="tabs">
           <button
             className={clsx('tab', activeTab === 'concept-art' && 'active')}
@@ -448,6 +500,17 @@ export default function Vault({ onBackToLanding }: VaultProps) {
               />
               Show Tags
             </label>
+            {activeTab === 'concept-art' && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.9rem', color: 'hsl(var(--text-dim))' }}>
+                <input
+                  type="checkbox"
+                  checked={showPortraits}
+                  onChange={e => setShowPortraits(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Show Portraits
+              </label>
+            )}
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc')}
@@ -517,6 +580,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
                       isSelectionMode={isSelectionMode}
                       playOnHover={playOnHover}
                       showTags={showTags}
+                      usePortrait={showPortraits && activeTab === 'concept-art'}
                     />
                   </div>
                 ))}
@@ -731,7 +795,7 @@ function UploadModal({
 
   const activeCategories = useMemo(() => {
     switch (targetType) {
-      case 'concept-art': return ['race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
+      case 'concept-art': return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
       case 'animation': return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx': return ['element', 'vfxType'];
       case 'ability-icons': return ['element', 'characterName'];
@@ -894,24 +958,37 @@ function UploadModal({
 
 // -------------------------------------------------------------------------------- //
 
-function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, playOnHover, showTags }: {
+function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, playOnHover, showTags, usePortrait = false }: {
   art: ConceptArt; onDelete: () => void; onClick: () => void;
   selected: boolean; isSelectionMode: boolean; playOnHover: boolean;
   showTags: boolean;
+  usePortrait?: boolean;
 }) {
   const [url, setUrl] = useState<string>('');
   const [isHovered, setIsHovered] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const isVideo = art.type === 'animation' || art.type === 'vfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp4') || (url || art.originalUrl).toLowerCase().endsWith('.mov') || (url || art.originalUrl).toLowerCase().endsWith('.webm');
+  const isVideo = !usePortrait && (art.type === 'animation' || art.type === 'vfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp4') || (url || art.originalUrl).toLowerCase().endsWith('.mov') || (url || art.originalUrl).toLowerCase().endsWith('.webm'));
 
   const { ref, isVisible } = useVisibility();
 
   useEffect(() => {
-    if (isVisible && !url) {
-      setUrl(art.compressedUrl || art.originalUrl);
+    if (isVisible) {
+      if (usePortrait && art.tags.characterName) {
+        const cleanCharName = art.tags.characterName.replace(/\s+/g, '');
+        const specialMappings: Record<string, string> = {
+          'BlueOrbConjurer': 'BlueOrbConjurer',
+          'DarkSorcerer': 'DarkSorcerer',
+          'ArmsDealer': 'ArmsCollector',
+          'ArmsCollector': 'ArmsCollector'
+        };
+        const finalName = specialMappings[cleanCharName] || cleanCharName;
+        setUrl(`/portraits/Illustration_${finalName}_Portrait.png`);
+      } else {
+        setUrl(art.compressedUrl || art.originalUrl);
+      }
     }
-  }, [art.originalUrl, art.compressedUrl, isVisible, url]);
+  }, [isVisible, usePortrait, art.tags.characterName, art.originalUrl, art.compressedUrl]);
 
   useEffect(() => {
     if (isVideo && videoRef.current) {
