@@ -7,12 +7,13 @@ interface LandingPageProps {
   onEnterRoster: () => void;
   onEnterEstimator: () => void;
   onEnterDashboard: () => void;
+  onEnterReview: () => void;
   privacyMode: boolean;
   onTogglePrivacy: () => void;
 }
 
 export default function LandingPage({ 
-  onEnterVault, onEnterRoster, onEnterEstimator, onEnterDashboard, 
+  onEnterVault, onEnterRoster, onEnterEstimator, onEnterDashboard, onEnterReview,
   privacyMode, onTogglePrivacy 
 }: LandingPageProps) {
   const backgroundImage = "/backgrounds/Frostbite_Background.jpg";
@@ -89,6 +90,9 @@ export default function LandingPage({
                 </button>
                 <button className="future-link active" onClick={onEnterDashboard}>
                   <FiActivity /> <span>Production Dashboard</span>
+                </button>
+                <button className="future-link active" onClick={onEnterReview}>
+                  <FiUsers /> <span>Review Tool</span>
                 </button>
               </div>
             </motion.div>

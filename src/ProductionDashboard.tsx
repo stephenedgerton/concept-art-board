@@ -176,6 +176,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
   const [selectedFaction, setSelectedFaction] = useState<string>('All');
   const [selectedRarity, setSelectedRarity] = useState<string>('All');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [allYears, setAllYears] = useState<boolean>(false);
   const [includeDevCosts, setIncludeDevCosts] = useState<boolean>(false);
 
   useEffect(() => {
@@ -323,12 +324,12 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       return factionMatch && rarityMatch;
     });
 
-    const currentYearData = filteredBase.filter(r => r.year === selectedYear);
-    const lastYearData = filteredBase.filter(r => r.year === lastYear);
+    const currentYearData = allYears ? filteredBase : filteredBase.filter(r => r.year === selectedYear);
+    const lastYearData = allYears ? [] : filteredBase.filter(r => r.year === lastYear);
     const getCost = (r: CostRecord) => includeDevCosts ? r.totalCost : r.artCost;
 
     const now = new Date();
-    const isCurrentYear = selectedYear === now.getFullYear();
+    const isCurrentYear = !allYears && selectedYear === now.getFullYear();
     const lastYearDataYTD = isCurrentYear 
       ? lastYearData.filter(r => {
           if (!r.dateCompleted) return false;
@@ -339,7 +340,13 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       : lastYearData;
 
     const currentYearCount = currentYearData.length;
-    const targetProgress = (currentYearCount / targetCount) * 100;
+    
+    // Adjust target and budget if allYears is true
+    const yearsInvolved = allYears ? (filterOptions.years.length || 1) : 1;
+    const activeTargetCount = targetCount * yearsInvolved;
+    const activeBudget = budget * yearsInvolved;
+
+    const targetProgress = (currentYearCount / activeTargetCount) * 100;
     const lastYearCountYTD = lastYearDataYTD.length;
     const countTrend = lastYearCountYTD === 0 ? 0 : (((currentYearCount - lastYearCountYTD) / lastYearCountYTD) * 100);
 
@@ -516,13 +523,14 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
     let recommendationType: 'stable' | 'action' | 'warning' = 'stable';
     if (mostVolatilePhase[1].accuracy > 125) { recommendation = `${mostVolatilePhase[0].toUpperCase()} production is exceeding estimates by ${(mostVolatilePhase[1].accuracy - 100).toFixed(1)}%. Review scope.`; recommendationType = 'warning'; }
     else if (multiplierTrend > 15) { recommendation = `Rarity premium is rising (${multiplierTrend.toFixed(1)}%). Standardize Legendary visual scopes.`; recommendationType = 'action'; }
-    else if (currentYearSpend > (budget * 1.1)) { recommendation = "Total spend has exceeded budget limits. Pipeline audit required."; recommendationType = 'warning'; }
+    else if (currentYearSpend > (activeBudget * 1.1)) { recommendation = "Total spend has exceeded budget limits. Pipeline audit required."; recommendationType = 'warning'; }
 
     return {
       currentYearCount, targetProgress, countTrend, currentYearSpend, estimationAccuracy, estimationDelta, variance, estStatus, estLabel, spendTrend,
       rarityStats: Object.entries(rarityStats).sort((a, b) => b[1].count - a[1].count),
       unitTypeStats: Object.entries(unitTypeStats).sort((a, b) => b[1].count - a[1].count),
-      budgetPercent: (currentYearSpend / budget) * 100,
+      budgetPercent: (currentYearSpend / activeBudget) * 100,
+      activeBudget, activeTargetCount,
       monthlySpend, monthlyUnits, avgMonthlySpend, monthlySpendTrend, currentCadence, cadenceTrend, projectedYearEndSpend, projectedYearEndUnits,
       efficiencyMultiplier, multiplierTrend, phaseAnalysis, recommendation, recommendationType,
       genderStats: Object.entries(genderStats),
@@ -531,7 +539,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       mostExpensiveFactionName: mostExpensiveFaction.name,
       mostExpensiveFactionCost: mostExpensiveFaction.avg
     };
-  }, [data, budget, targetCount, selectedFaction, selectedRarity, selectedYear, includeDevCosts]);
+  }, [data, budget, targetCount, selectedFaction, selectedRarity, selectedYear, includeDevCosts, allYears, filterOptions.years]);
 
   const formatCurrency = (val: number) => {
     const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
@@ -595,8 +603,24 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
             </button>
           </div>
 
-          <label style={{ marginTop: '1.5rem', display: 'block' }}>Fiscal Year</label>
-          <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))} className="prod-filter-select">
+          <div className="prod-toggle-group">
+            <label>All Fiscal Years</label>
+            <button 
+              className={`prod-toggle ${allYears ? 'active' : ''}`}
+              onClick={() => setAllYears(!allYears)}
+            >
+              <div className="toggle-thumb" />
+            </button>
+          </div>
+
+          <label style={{ marginTop: '1.5rem', display: 'block', opacity: allYears ? 0.5 : 1 }}>Fiscal Year</label>
+          <select 
+            value={selectedYear} 
+            onChange={e => setSelectedYear(parseInt(e.target.value))} 
+            className="prod-filter-select"
+            disabled={allYears}
+            style={{ opacity: allYears ? 0.5 : 1, cursor: allYears ? 'not-allowed' : 'pointer' }}
+          >
             {filterOptions.years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
@@ -615,7 +639,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
       <main className="prod-main">
         <header className="prod-header" style={{ justifyContent: 'flex-end', marginBottom: '1rem' }}>
           <div className="prod-date-badge">
-            <FiCalendar /> FY {selectedYear}
+            <FiCalendar /> {allYears ? 'All Fiscal Years' : `FY ${selectedYear}`}
           </div>
         </header>
 
@@ -642,7 +666,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                 </div>
                 <div className="projection-divider" />
                 <div className="projection-group">
-                  <span className="label">Projected FY {selectedYear} Inventory</span>
+                  <span className="label">Projected {allYears ? 'Annual' : `FY ${selectedYear}`} Inventory</span>
                   <span className="value">{insights.projectedYearEndUnits} Units</span>
                   <div className={`projection-badge ${insights.projectedYearEndUnits >= targetCount ? 'success' : 'warning'}`}>
                     <FiUsers /> {insights.projectedYearEndUnits >= targetCount ? 'Target Met' : 'Below Target'}
@@ -665,15 +689,17 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
               <div className="prod-stat-icon"><FiUsers /></div>
               <div className="prod-stat-info">
                 <span className="prod-stat-label">Production Target</span>
-                <span className="prod-stat-value">{insights.currentYearCount} / {targetCount}</span>
+                <span className="prod-stat-value">{insights.currentYearCount} / {insights.activeTargetCount}</span>
                 <div className="prod-mini-progress">
                   <div className="bar"><motion.div className="fill" initial={{ width: 0 }} animate={{ width: `${Math.min(100, insights.targetProgress)}%` }} /></div>
                   <span className="pct">{insights.targetProgress.toFixed(0)}%</span>
                 </div>
-                <span className={`prod-stat-trend ${insights.countTrend >= 0 ? 'up' : 'down'}`} style={{ fontSize: '0.7rem', marginTop: '0.4rem' }}>
-                  {insights.countTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-                  {Math.abs(insights.countTrend).toFixed(1)}% 
-                </span>
+                {!allYears && (
+                  <span className={`prod-stat-trend ${insights.countTrend >= 0 ? 'up' : 'down'}`} style={{ fontSize: '0.7rem', marginTop: '0.4rem' }}>
+                    {insights.countTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
+                    {Math.abs(insights.countTrend).toFixed(1)}% 
+                  </span>
+                )}
               </div>
             </div>
 
@@ -682,11 +708,13 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
               <div className="prod-stat-info">
                 <span className="prod-stat-label">{includeDevCosts ? 'Total Production' : 'Total Art'} Spend</span>
                 <span className="prod-stat-value">{formatCurrency(insights.currentYearSpend)}</span>
-                <span className={`prod-stat-trend ${insights.spendTrend >= 0 ? 'down' : 'up'}`}>
-                  {insights.spendTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-                  {Math.abs(insights.spendTrend).toFixed(1)}% 
-                  <span style={{ opacity: 0.5, marginLeft: '0.3rem', fontSize: '0.65rem' }}>YTD</span>
-                </span>
+                {!allYears && (
+                  <span className={`prod-stat-trend ${insights.spendTrend >= 0 ? 'down' : 'up'}`}>
+                    {insights.spendTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
+                    {Math.abs(insights.spendTrend).toFixed(1)}% 
+                    <span style={{ opacity: 0.5, marginLeft: '0.3rem', fontSize: '0.65rem' }}>YTD</span>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -698,7 +726,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                 <div className="prod-budget-progress">
                   <div className="progress-bar"><motion.div className="progress-fill" initial={{ width: 0 }} animate={{ width: `${Math.min(100, insights.budgetPercent)}%` }} /></div>
                 </div>
-                <span className="prod-budget-remaining" style={{ marginTop: '0.4rem', display: 'block' }}>{formatCurrency(budget - insights.currentYearSpend)} remaining of {formatCurrency(budget)}</span>
+                <span className="prod-budget-remaining" style={{ marginTop: '0.4rem', display: 'block' }}>{formatCurrency(insights.activeBudget - insights.currentYearSpend)} remaining of {formatCurrency(insights.activeBudget)}</span>
               </div>
             </div>
           </section>
@@ -735,7 +763,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                         </div>
                         <div className="rarity-cost-details">
                           <span className="rarity-avg-cost">{formatCurrency(stats.avgCost)}</span>
-                          {stats.lyAvgCost > 0 && (
+                          {!allYears && stats.lyAvgCost > 0 && (
                             <span className={`prod-stat-trend ${stats.avgCost > stats.lyAvgCost ? 'down' : 'up'}`} style={{ fontSize: '0.7rem' }}>
                               {stats.avgCost > stats.lyAvgCost ? <FiTrendingUp /> : <FiTrendingDown />}
                               {stats.avgCost > stats.lyAvgCost ? '+' : '-'}{formatCurrency(Math.abs(stats.avgCost - stats.lyAvgCost))}
@@ -770,7 +798,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                         </div>
                         <div className="rarity-cost-details">
                           <span className="rarity-avg-cost">{formatCurrency(stats.avgCost)}</span>
-                          {stats.lyAvgCost > 0 && (
+                          {!allYears && stats.lyAvgCost > 0 && (
                             <span className={`prod-stat-trend ${stats.avgCost > stats.lyAvgCost ? 'down' : 'up'}`} style={{ fontSize: '0.7rem' }}>
                               {stats.avgCost > stats.lyAvgCost ? <FiTrendingUp /> : <FiTrendingDown />}
                               {stats.avgCost > stats.lyAvgCost ? '+' : '-'}{formatCurrency(Math.abs(stats.avgCost - stats.lyAvgCost))}
@@ -870,10 +898,12 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                 <span className="multiplier">
                   {insights.efficiencyMultiplier.toFixed(1)}x
                 </span>
-                <span className={`prod-stat-trend ${insights.multiplierTrend <= 0 ? 'up' : 'down'}`} style={{ display: 'inline-flex', marginLeft: '0.5rem', fontSize: '0.75rem' }}>
-                  {insights.multiplierTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-                  {Math.abs(insights.multiplierTrend).toFixed(1)}% 
-                </span>
+                {!allYears && (
+                  <span className={`prod-stat-trend ${insights.multiplierTrend <= 0 ? 'up' : 'down'}`} style={{ display: 'inline-flex', marginLeft: '0.5rem', fontSize: '0.75rem' }}>
+                    {insights.multiplierTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
+                    {Math.abs(insights.multiplierTrend).toFixed(1)}% 
+                  </span>
+                )}
                 <p style={{ fontSize: '0.65rem', opacity: 0.4, margin: '0.2rem 0 0' }}>High-tier vs. Low-tier average ratio</p>
               </div>
             </div>
@@ -881,10 +911,12 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
               <div className="efficiency-metric">
                 <span className="label">Avg Monthly Spend</span>
                 <span className="value">{formatCurrency(insights.avgMonthlySpend)}</span>
-                <span className={`prod-stat-trend ${insights.monthlySpendTrend <= 0 ? 'up' : 'down'}`} style={{ fontSize: '0.75rem' }}>
-                  {insights.monthlySpendTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-                  {Math.abs(insights.monthlySpendTrend).toFixed(1)}% 
-                </span>
+                {!allYears && (
+                  <span className={`prod-stat-trend ${insights.monthlySpendTrend <= 0 ? 'up' : 'down'}`} style={{ fontSize: '0.75rem' }}>
+                    {insights.monthlySpendTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
+                    {Math.abs(insights.monthlySpendTrend).toFixed(1)}% 
+                  </span>
+                )}
               </div>
               <div className="efficiency-metric">
                 <span className="label">Release Cadence</span>
@@ -893,10 +925,12 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
                     ? `Every ${insights.currentCadence.toFixed(1)} days` 
                     : '0 units'}
                 </span>
-                <span className={`prod-stat-trend ${insights.cadenceTrend >= 0 ? 'up' : 'down'}`} style={{ fontSize: '0.75rem' }}>
-                  {insights.cadenceTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
-                  {Math.abs(insights.cadenceTrend).toFixed(1)}% {insights.cadenceTrend >= 0 ? 'faster' : 'slower'}
-                </span>
+                {!allYears && (
+                  <span className={`prod-stat-trend ${insights.cadenceTrend >= 0 ? 'up' : 'down'}`} style={{ fontSize: '0.75rem' }}>
+                    {insights.cadenceTrend >= 0 ? <FiTrendingUp /> : <FiTrendingDown />}
+                    {Math.abs(insights.cadenceTrend).toFixed(1)}% {insights.cadenceTrend >= 0 ? 'faster' : 'slower'}
+                  </span>
+                )}
               </div>
               <div className="efficiency-metric">
                 <span className="label">Cost Stability</span>
@@ -990,7 +1024,7 @@ export default function ProductionDashboard({ onBackToLanding, privacyMode, onTo
               <span className="prod-stat-value" style={{ fontSize: '1.4rem' }}>{insights.mostExpensiveFactionName}</span>
               <span className="prod-stat-label" style={{ marginTop: '0.5rem' }}>Average Cost: {formatCurrency(insights.mostExpensiveFactionCost)}</span>
               <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem', marginTop: '1rem' }}>
-                This faction currently requires the highest visual and development investment per unit in {selectedYear}.
+                This faction currently requires the highest visual and development investment per unit in {allYears ? 'all fiscal years' : selectedYear}.
               </p>
             </div>
             </section>

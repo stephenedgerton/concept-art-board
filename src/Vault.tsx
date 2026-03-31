@@ -533,13 +533,29 @@ export default function Vault({ onBackToLanding }: VaultProps) {
               <FiCheckSquare /> {isSelectionMode ? 'Cancel Selection' : 'Select Multiple'}
             </button>
             {selectedIds.size > 0 && isSelectionMode && (
-              <button
-                className="clear-filters"
-                onClick={() => setBulkEditModalOpen(true)}
-                style={{ backgroundColor: 'hsl(var(--primary))', color: 'white', borderColor: 'hsl(var(--primary))' }}
-              >
-                Bulk Edit Tags ({selectedIds.size})
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="clear-filters"
+                  onClick={() => setBulkEditModalOpen(true)}
+                  style={{ backgroundColor: 'hsl(var(--primary))', color: 'white', borderColor: 'hsl(var(--primary))' }}
+                >
+                  Bulk Edit Tags ({selectedIds.size})
+                </button>
+                <button
+                  className="clear-filters"
+                  onClick={() => {
+                    const currentReviewIds = JSON.parse(localStorage.getItem('review_vault_ids') || '[]');
+                    const nextReviewIds = Array.from(new Set([...currentReviewIds, ...Array.from(selectedIds)]));
+                    localStorage.setItem('review_vault_ids', JSON.stringify(nextReviewIds));
+                    alert(`Added ${selectedIds.size} items to Review Board`);
+                    setSelectedIds(new Set());
+                    setIsSelectionMode(false);
+                  }}
+                  style={{ backgroundColor: 'hsl(var(--secondary))', color: 'white', borderColor: 'hsl(var(--secondary))' }}
+                >
+                  Send to Review ({selectedIds.size})
+                </button>
+              </div>
             )}
             <button className="clear-filters" onClick={clearFilters}>
               Clear Filters
