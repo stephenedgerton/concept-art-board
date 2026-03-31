@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiHome, FiRefreshCw } from 'react-icons/fi';
+import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiHome, FiRefreshCw, FiList, FiGrid } from 'react-icons/fi';
 import { clsx } from 'clsx';
 import {
   addArtwork, getAllArtworks, deleteArtwork,
@@ -35,6 +35,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   const [playOnHover, setPlayOnHover] = useState(true);
   const [showTags, setShowTags] = useState(true);
   const [showPortraits, setShowPortraits] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [characterNames, setCharacterNames] = useState<string[]>([]);
 
   // Custom Tag Categories state
@@ -425,7 +426,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
           </button>
           <button
             className={clsx('tab', activeTab === 'sfx' && 'active')}
-            onClick={() => { setActiveTab('sfx'); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('name-asc'); setZoom(1); }}
+            onClick={() => { setActiveTab('sfx'); setPlayOnHover(false); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('name-asc'); setZoom(1); }}
           >
             <FiVideo /> SFX
           </button>
@@ -521,6 +522,24 @@ export default function Vault({ onBackToLanding }: VaultProps) {
                 Show Portraits
               </label>
             )}
+            {activeTab === 'sfx' && (
+              <div className="view-mode-toggle">
+                <button 
+                  className={clsx("view-btn", viewMode === 'grid' && "active")}
+                  onClick={() => setViewMode('grid')}
+                  title="Grid View"
+                >
+                  <FiGrid />
+                </button>
+                <button 
+                  className={clsx("view-btn", viewMode === 'list' && "active")}
+                  onClick={() => setViewMode('list')}
+                  title="List View"
+                >
+                  <FiList />
+                </button>
+              </div>
+            )}
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc')}
@@ -587,53 +606,87 @@ export default function Vault({ onBackToLanding }: VaultProps) {
             </div>
           ) : (
             <div
-              className="gallery-grid"
-              style={{ gridTemplateColumns: activeTab === 'ability-icons'
+              className={clsx(viewMode === 'grid' ? "gallery-grid" : "gallery-list")}
+              style={viewMode === 'grid' ? { gridTemplateColumns: activeTab === 'ability-icons'
                 ? `repeat(auto-fill, minmax(${Math.max(80, Math.min(zoom * 120, 200))}px, 1fr))`
-                : `repeat(auto-fill, minmax(${Math.max(200, Math.min(zoom * 280, 600))}px, 1fr))` }}
+                : `repeat(auto-fill, minmax(${Math.max(200, Math.min(zoom * 280, 600))}px, 1fr))` } : {}}
             >
               <AnimatePresence mode="popLayout">
                 {filteredArtworks.map(art => (
-                  <div key={art.id} className="static-card" data-id={art.id}>
-                    <StaticArtwork
-                      art={art}
-                      onDelete={() => handleDelete(art.id)}
-                      onClick={() => {
-                        if (isSelectionMode) {
-                          toggleSelection(art.id);
-                        } else if (art.type === 'sfx') {
-                          // Handle SFX click specifically: Toggle Play/Stop
-                          const audioElements = document.querySelectorAll('audio');
-                          let targetAudio: HTMLAudioElement | null = null;
-                          
-                          audioElements.forEach(el => {
-                            const isMatch = el.src.includes(art.originalUrl) || (art.compressedUrl && el.src.includes(art.compressedUrl));
-                            if (isMatch) targetAudio = el;
-                          });
+                  <div key={art.id} className={clsx(viewMode === 'grid' ? "static-card" : "list-card-wrapper")} data-id={art.id}>
+                    {viewMode === 'grid' ? (
+                      <StaticArtwork
+                        art={art}
+                        onDelete={() => handleDelete(art.id)}
+                        onClick={() => {
+                          if (isSelectionMode) {
+                            toggleSelection(art.id);
+                          } else if (art.type === 'sfx') {
+                            // Handle SFX click specifically: Toggle Play/Stop
+                            const audioElements = document.querySelectorAll('audio');
+                            let targetAudio: HTMLAudioElement | null = null;
+                            
+                            audioElements.forEach(el => {
+                              const isMatch = el.src.includes(art.originalUrl) || (art.compressedUrl && el.src.includes(art.compressedUrl));
+                              if (isMatch) targetAudio = el;
+                            });
 
-                          if (targetAudio) {
-                            if (targetAudio.paused) {
-                              // Stop ALL others first
-                              audioElements.forEach(el => {
-                                el.pause();
-                                el.currentTime = 0;
-                              });
-                              targetAudio.play().catch(() => {});
-                            } else {
-                              targetAudio.pause();
-                              targetAudio.currentTime = 0;
+                            if (targetAudio) {
+                              if (targetAudio.paused) {
+                                // Stop ALL others first
+                                audioElements.forEach(el => {
+                                  el.pause();
+                                  el.currentTime = 0;
+                                });
+                                targetAudio.play().catch(() => {});
+                              } else {
+                                targetAudio.pause();
+                                targetAudio.currentTime = 0;
+                              }
+                            }
+                          } else {
+                            setViewerArt(art);
+                          }
+                        }}
+                        selected={selectedIds.has(art.id)}
+                        isSelectionMode={isSelectionMode}
+                        playOnHover={playOnHover}
+                        showTags={showTags}
+                        usePortrait={showPortraits && activeTab === 'concept-art'}
+                      />
+                    ) : (
+                      <StaticArtworkList
+                        art={art}
+                        onDelete={() => handleDelete(art.id)}
+                        onClick={() => {
+                          if (isSelectionMode) {
+                            toggleSelection(art.id);
+                          } else {
+                            // SFX List View click also toggles play
+                            const audioElements = document.querySelectorAll('audio');
+                            let targetAudio: HTMLAudioElement | null = null;
+                            
+                            audioElements.forEach(el => {
+                              const isMatch = el.src.includes(art.originalUrl) || (art.compressedUrl && el.src.includes(art.compressedUrl));
+                              if (isMatch) targetAudio = el;
+                            });
+
+                            if (targetAudio) {
+                              if (targetAudio.paused) {
+                                audioElements.forEach(el => { el.pause(); el.currentTime = 0; });
+                                targetAudio.play().catch(() => {});
+                              } else {
+                                targetAudio.pause();
+                                targetAudio.currentTime = 0;
+                              }
                             }
                           }
-                        } else {
-                          setViewerArt(art);
-                        }
-                      }}
-                      selected={selectedIds.has(art.id)}
-                      isSelectionMode={isSelectionMode}
-                      playOnHover={playOnHover}
-                      showTags={showTags}
-                      usePortrait={showPortraits && activeTab === 'concept-art'}
-                    />
+                        }}
+                        selected={selectedIds.has(art.id)}
+                        isSelectionMode={isSelectionMode}
+                        playOnHover={playOnHover}
+                      />
+                    )}
                   </div>
                 ))}
               </AnimatePresence>
@@ -1290,6 +1343,90 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
             </div>
           )}
         </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// -------------------------------------------------------------------------------- //
+
+function StaticArtworkList({ art, onDelete, onClick, selected, isSelectionMode, playOnHover }: {
+  art: ConceptArt; onDelete: () => void; onClick: () => void;
+  selected: boolean; isSelectionMode: boolean; playOnHover: boolean;
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const url = art.compressedUrl || art.originalUrl;
+
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isHovered && playOnHover) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => { });
+      } else if (!isHovered && playOnHover) {
+        audioRef.current.pause();
+      }
+    }
+  }, [isHovered, playOnHover]);
+
+  return (
+    <motion.div
+      className={clsx("sfx-list-item", selected && "selected")}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      onClick={onClick}
+    >
+      {/* Small integrated portrait and wave */}
+      <div className="list-visual-container">
+        {art.tags.characterName && (
+          <img 
+            src={`/portraits/Illustration_${art.tags.characterName.replace(/\s+/g, '')}_Portrait.png`}
+            alt=""
+            className="list-portrait"
+            onError={(e) => e.currentTarget.style.display = 'none'}
+          />
+        )}
+        <div className="list-waveform">
+          {[...Array(6)].map((_, i) => (
+            <motion.div
+              key={i}
+              animate={isPlaying ? { height: [4, 15, 8, 20, 6, 4] } : { height: 4 }}
+              transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
+              className="list-wave-bar"
+            />
+          ))}
+        </div>
+        <audio 
+          ref={audioRef} 
+          src={url} 
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={() => setIsPlaying(false)}
+        />
+      </div>
+
+      <div className="list-info">
+        <h4 className="list-title">{cleanName(art.name)}</h4>
+        <div className="list-tags">
+          {Object.entries(art.tags).map(([key, value]) => {
+            if (!value) return null;
+            return (
+              <span key={key} className={clsx("tag-badge mini", key)}>
+                {Array.isArray(value) ? value.join(', ') : value}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="list-actions">
+        <button className="delete-btn-list" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+          <FiTrash2 size={14} />
+        </button>
       </div>
     </motion.div>
   );

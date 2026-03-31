@@ -831,10 +831,149 @@
   word-break: break-word;
 }
 
-.selection-marquee {
-  position: fixed;
-  border: 1px solid hsl(var(--primary));
-  background-color: hsla(var(--primary) / 0.1);
-  z-index: 9999;
-  pointer-events: none;
+/* =======================================================
+   VIEW MODE TOGGLE
+   ======================================================= */
+.view-mode-toggle {
+  display: flex;
+  background-color: hsl(var(--surface-hover));
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid var(--border);
+}
+
+.view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.view-btn.active {
+  background-color: hsl(var(--primary));
+  color: white;
+}
+
+/* =======================================================
+   GALLERY LIST VIEW (SFX)
+   ======================================================= */
+.gallery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.sfx-list-item {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background-color: hsl(var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.sfx-list-item:hover {
+  background-color: hsl(var(--surface-hover));
+  border-color: hsl(var(--primary) / 0.5);
+  transform: translateX(4px);
+}
+
+.sfx-list-item.selected {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.05);
+}
+
+.list-visual-container {
+  width: 120px;
+  height: 48px;
+  background-color: black;
+  border-radius: 6px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.list-portrait {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.4;
+  filter: grayscale(0.5);
+}
+
+.list-waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  z-index: 1;
+  height: 24px;
+}
+
+.list-wave-bar {
+  width: 3px;
+  background-color: hsl(var(--primary));
+  border-radius: 2px;
+}
+
+.list-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.list-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.list-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag-badge.mini {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+}
+
+.delete-btn-list {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  padding: 0.5rem;
+}
+
+.sfx-list-item:hover .delete-btn-list {
+  opacity: 0.6;
+}
+
+.delete-btn-list:hover {
+  color: hsl(var(--danger, 0 80% 60%));
+  opacity: 1 !important;
 }
