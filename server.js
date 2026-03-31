@@ -66,6 +66,7 @@ async function checkStorage() {
 await checkStorage();
 
 app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/data', express.static(DATA_DIR));
 app.use('/backgrounds', express.static(BACKGROUNDS_DIR));
 app.use('/portraits', express.static(PORTRAITS_DIR));
 
