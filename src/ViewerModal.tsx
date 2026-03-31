@@ -1,29 +1,120 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { FiX, FiLink } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FiX, FiLink, FiImage, FiUser } from 'react-icons/fi';
 import { updateArtwork } from './lib/db';
 import type { ConceptArt } from './lib/db';
+import { clsx } from 'clsx';
 
 export const cleanName = (name: string) => name.replace(/_/g, ' ').replace(/\s*v\d+\s*$/i, '').trim();
 
 interface ViewerModalProps {
   art: ConceptArt;
+  allArtworks?: ConceptArt[];
   categoryTags?: Record<string, string[]>;
   onClose: () => void;
   onUpdateSuccess?: (art: ConceptArt) => void;
   readOnly?: boolean;
+  usePortrait?: boolean;
 }
 
-export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateSuccess, readOnly = false }: ViewerModalProps) {
-  const [url, setUrl] = useState<string>('');
+interface Variation {
+  id: string;
+  type: 'concept' | 'portrait' | 'other';
+  url: string;
+  name: string;
+  asset?: ConceptArt;
+}
+
+export default function ViewerModal({ 
+  art, 
+  allArtworks = [],
+  categoryTags = {}, 
+  onClose, 
+  onUpdateSuccess, 
+  readOnly = false,
+  usePortrait = false 
+}: ViewerModalProps) {
+  const [activeUrl, setActiveUrl] = useState<string>('');
+  const [activeType, setActiveType] = useState<'video' | 'image' | 'audio'>('image');
+  const [selectedVariationId, setSelectedVariationId] = useState<string>('main');
+
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(art.name);
   const [editTags, setEditTags] = useState(art.tags);
   const [saving, setSaving] = useState(false);
 
+  const variations = useMemo(() => {
+    const list: Variation[] = [];
+    
+    // 1. The main asset itself
+    list.push({
+      id: 'main',
+      type: 'concept',
+      url: art.compressedUrl || art.originalUrl,
+      name: 'Concept Art',
+      asset: art
+    });
+
+    // 2. The portrait if it exists (for concept-art)
+    if (art.type === 'concept-art' && art.tags.characterName) {
+      const cleanCharName = art.tags.characterName.replace(/\s+/g, '');
+      const specialMappings: Record<string, string> = {
+        'BlueOrbConjurer': 'BlueOrbConjurer',
+        'DarkSorcerer': 'DarkSorcerer',
+        'ArmsDealer': 'ArmsCollector',
+        'ArmsCollector': 'ArmsCollector'
+      };
+      const finalName = specialMappings[cleanCharName] || cleanCharName;
+      list.push({
+        id: 'portrait',
+        type: 'portrait',
+        url: `/portraits/Illustration_${finalName}_Portrait.png`,
+        name: 'Portrait'
+      });
+    }
+
+    // 3. Other assets with the same character name
+    if (art.tags.characterName) {
+      const others = allArtworks.filter(a => 
+        a.id !== art.id && 
+        a.tags.characterName === art.tags.characterName
+      );
+      others.forEach(other => {
+        list.push({
+          id: other.id,
+          type: 'other',
+          url: other.compressedUrl || other.originalUrl,
+          name: other.name,
+          asset: other
+        });
+      });
+    }
+
+    return list;
+  }, [art, allArtworks]);
+
   useEffect(() => {
-    setUrl(art.compressedUrl || art.originalUrl);
-  }, [art.originalUrl, art.compressedUrl]);
+    // Initial selection
+    if (usePortrait && variations.some(v => v.id === 'portrait')) {
+      const v = variations.find(v => v.id === 'portrait')!;
+      setSelectedVariationId('portrait');
+      setActiveUrl(v.url);
+    } else {
+      setSelectedVariationId('main');
+      setActiveUrl(art.compressedUrl || art.originalUrl);
+    }
+  }, [art, usePortrait, variations]);
+
+  useEffect(() => {
+    const url = activeUrl.toLowerCase();
+    if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov')) {
+      setActiveType('video');
+    } else if (url.endsWith('.mp3') || url.endsWith('.wav') || url.endsWith('.ogg')) {
+      setActiveType('audio');
+    } else {
+      setActiveType('image');
+    }
+  }, [activeUrl]);
 
   useEffect(() => {
     setEditName(art.name);
@@ -32,10 +123,11 @@ export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateS
 
   const activeCategories = useMemo(() => {
     switch (art.type) {
-      case 'concept-art': return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
+      case 'concept-art': return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity', 'characterName'];
       case 'animation': return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx': return ['element', 'vfxType'];
-      case 'ability-icons': return ['element', 'characterName'];
+      case 'sfx': return ['element', 'sfxType', 'characterName'];
+      case 'ability-icons': return ['element', 'characterName', 'abilityAction'];
       case 'references': return ['referenceType'];
       default: return [];
     }
@@ -56,7 +148,14 @@ export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateS
     }
   };
 
-  const isVideo = art.type === 'animation' || art.type === 'vfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp4') || (url || art.originalUrl).toLowerCase().endsWith('.mov') || (url || art.originalUrl).toLowerCase().endsWith('.webm');
+  const handlePortraitError = () => {
+    if (selectedVariationId === 'portrait') {
+      // Fallback to main
+      const main = variations.find(v => v.id === 'main')!;
+      setSelectedVariationId('main');
+      setActiveUrl(main.url);
+    }
+  };
 
   return (
     <motion.div
@@ -77,7 +176,7 @@ export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateS
             <button 
               className="copy-link-btn" 
               onClick={() => {
-                const fullUrl = window.location.origin + art.originalUrl;
+                const fullUrl = window.location.origin + activeUrl;
                 navigator.clipboard.writeText(fullUrl);
                 alert('Link copied to clipboard!');
               }}
@@ -92,12 +191,52 @@ export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateS
         <div className="viewer-layout">
           <div className="viewer-content">
             <div className="viewer-image-container">
-              {isVideo ? (
-                <video src={url} controls autoPlay loop className="viewer-image" />
+              {activeType === 'video' ? (
+                <video src={activeUrl} controls autoPlay loop className="viewer-image" />
+              ) : activeType === 'audio' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', color: 'hsl(var(--primary))' }}>
+                   <FiVideo size={120} />
+                   <audio src={activeUrl} controls autoPlay />
+                </div>
               ) : (
-                <img src={url} alt={art.name} className="viewer-image" />
+                <img 
+                  src={activeUrl} 
+                  alt={art.name} 
+                  className="viewer-image" 
+                  onError={handlePortraitError}
+                />
               )}
             </div>
+
+            {/* Variation Carousel */}
+            {variations.length > 1 && (
+              <div className="viewer-carousel">
+                {variations.map(v => (
+                  <button
+                    key={v.id}
+                    className={clsx("carousel-item", selectedVariationId === v.id && "active")}
+                    onClick={() => {
+                      setSelectedVariationId(v.id);
+                      setActiveUrl(v.url);
+                    }}
+                  >
+                    <div className="carousel-preview">
+                      {v.type === 'portrait' ? (
+                        <FiUser size={24} />
+                      ) : v.url.toLowerCase().endsWith('.mp4') ? (
+                        <FiVideo size={24} />
+                      ) : (
+                        <img src={v.url} alt={v.name} onError={(e) => {
+                           // If small preview fails, hide or show icon
+                           e.currentTarget.style.display = 'none';
+                        }} />
+                      )}
+                    </div>
+                    <span>{v.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <aside className="viewer-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -120,7 +259,7 @@ export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateS
             </div>
 
             {activeCategories.map(category => {
-              const isMultiSelect = category === 'vfxType';
+              const isMultiSelect = category === 'vfxType' || category === 'sfxType';
               const value = editTags[category as keyof typeof editTags];
 
               if (isEditing) {
@@ -166,7 +305,7 @@ export default function ViewerModal({ art, categoryTags = {}, onClose, onUpdateS
                   <div className="metadata-label">{category.replace(/([A-Z])/g, ' $1').trim()}</div>
                   <div className="metadata-value" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {Array.isArray(value)
-                      ? value.map(v => <span key={v} className="tag-badge vfxType">{v}</span>)
+                      ? value.map(v => <span key={v} className={clsx("tag-badge", category)}>{v}</span>)
                       : value
                     }
                   </div>

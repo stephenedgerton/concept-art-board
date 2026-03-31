@@ -33,7 +33,8 @@ const DEFAULT_CATEGORIES = {
     rarity: ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic'],
     animationType: ['stun animations', 'death animations', 'run', 'idle', 'level up abilities', 'melee abilities', 'ranged abilities', 'magic abilities'],
     abilityTags: ['sword', 'axe', 'slash', 'impact', 'projectile'],
-    vfxType: ['Explosion', 'Aura', 'Projectile', 'Impact', 'Trail']
+    vfxType: ['Explosion', 'Aura', 'Projectile', 'Impact', 'Trail'],
+    sfxType: ['explosions', 'status', 'charge', 'projectiles', 'on hit']
 };
 
 async function initData() {

@@ -51,7 +51,8 @@ export default function Vault({ onBackToLanding }: VaultProps) {
     rarity: [],
     animationType: [],
     vfxType: [],
-    abilityAction: []
+    abilityAction: [],
+    characterName: []
   });
 
   const [zoom, setZoom] = useState(1);
@@ -203,7 +204,8 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   const clearFilters = () => {
     setFilters({
       gender: [], race: [], faction: [], combatType: [], baseMesh: [],
-      element: [], unitType: [], rarity: [], animationType: [], vfxType: []
+      element: [], unitType: [], rarity: [], animationType: [], vfxType: [],
+      sfxType: [], characterName: [], abilityAction: []
     });
     setSearchQuery('');
   };
@@ -212,11 +214,13 @@ export default function Vault({ onBackToLanding }: VaultProps) {
   const activeCategories = useMemo(() => {
     switch (activeTab) {
       case 'concept-art':
-        return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
+        return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity', 'characterName'];
       case 'animation':
         return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx':
         return ['element', 'vfxType'];
+      case 'sfx':
+        return ['element', 'sfxType', 'characterName'];
       case 'ability-icons':
         return ['element', 'characterName', 'abilityAction'];
       case 'references':
@@ -420,6 +424,12 @@ export default function Vault({ onBackToLanding }: VaultProps) {
             <FiVideo /> VFX
           </button>
           <button
+            className={clsx('tab', activeTab === 'sfx' && 'active')}
+            onClick={() => { setActiveTab('sfx'); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('name-asc'); setZoom(1); }}
+          >
+            <FiVideo /> SFX
+          </button>
+          <button
             className={clsx('tab', activeTab === 'ability-icons' && 'active')}
             onClick={() => { setActiveTab('ability-icons'); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('name-asc'); setZoom(1.25); }}
           >
@@ -589,8 +599,34 @@ export default function Vault({ onBackToLanding }: VaultProps) {
                       art={art}
                       onDelete={() => handleDelete(art.id)}
                       onClick={() => {
-                        if (isSelectionMode) toggleSelection(art.id);
-                        else setViewerArt(art);
+                        if (isSelectionMode) {
+                          toggleSelection(art.id);
+                        } else if (art.type === 'sfx') {
+                          // Handle SFX click specifically: Toggle Play/Stop
+                          const audioElements = document.querySelectorAll('audio');
+                          let targetAudio: HTMLAudioElement | null = null;
+                          
+                          audioElements.forEach(el => {
+                            const isMatch = el.src.includes(art.originalUrl) || (art.compressedUrl && el.src.includes(art.compressedUrl));
+                            if (isMatch) targetAudio = el;
+                          });
+
+                          if (targetAudio) {
+                            if (targetAudio.paused) {
+                              // Stop ALL others first
+                              audioElements.forEach(el => {
+                                el.pause();
+                                el.currentTime = 0;
+                              });
+                              targetAudio.play().catch(() => {});
+                            } else {
+                              targetAudio.pause();
+                              targetAudio.currentTime = 0;
+                            }
+                          }
+                        } else {
+                          setViewerArt(art);
+                        }
                       }}
                       selected={selectedIds.has(art.id)}
                       isSelectionMode={isSelectionMode}
@@ -633,6 +669,8 @@ export default function Vault({ onBackToLanding }: VaultProps) {
         {viewerArt && (
           <ViewerModal
             art={viewerArt}
+            allArtworks={artworks}
+            usePortrait={showPortraits && activeTab === 'concept-art'}
             categoryTags={categoryTags}
             onUpdateSuccess={(art) => { setViewerArt(art); loadData(); }}
             onClose={() => setViewerArt(null)}
@@ -814,6 +852,7 @@ function UploadModal({
       case 'concept-art': return ['gender', 'race', 'faction', 'combatType', 'baseMesh', 'element', 'unitType', 'rarity'];
       case 'animation': return ['baseMesh', 'animationType', 'abilityTags'];
       case 'vfx': return ['element', 'vfxType'];
+      case 'sfx': return ['element', 'sfxType', 'characterName'];
       case 'ability-icons': return ['element', 'characterName'];
       case 'references': return ['referenceType'];
       default: return [];
@@ -919,6 +958,7 @@ function UploadModal({
               <button type="button" className={clsx('tab', targetType === 'concept-art' && 'active')} onClick={() => setTargetType('concept-art')}>Concept Art</button>
               <button type="button" className={clsx('tab', targetType === 'animation' && 'active')} onClick={() => setTargetType('animation')}>Animations</button>
               <button type="button" className={clsx('tab', targetType === 'vfx' && 'active')} onClick={() => setTargetType('vfx')}>VFX</button>
+              <button type="button" className={clsx('tab', targetType === 'sfx' && 'active')} onClick={() => setTargetType('sfx')}>SFX</button>
               <button type="button" className={clsx('tab', targetType === 'ability-icons' && 'active')} onClick={() => setTargetType('ability-icons')}>Ability Icons</button>
               <button type="button" className={clsx('tab', targetType === 'references' && 'active')} onClick={() => setTargetType('references')}>References</button>
               </div>          </div>
@@ -982,15 +1022,20 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
 }) {
   const [url, setUrl] = useState<string>('');
   const [isHovered, setIsHovered] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasPortraitError, setHasPortraitError] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  
   const isVideo = !usePortrait && (art.type === 'animation' || art.type === 'vfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp4') || (url || art.originalUrl).toLowerCase().endsWith('.mov') || (url || art.originalUrl).toLowerCase().endsWith('.webm'));
+  const isAudio = art.type === 'sfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp3') || (url || art.originalUrl).toLowerCase().endsWith('.wav') || (url || art.originalUrl).toLowerCase().endsWith('.ogg');
 
   const { ref, isVisible } = useVisibility();
 
   useEffect(() => {
     if (isVisible) {
-      if (usePortrait && art.tags.characterName) {
+      if (usePortrait && art.tags.characterName && !hasPortraitError) {
         const cleanCharName = art.tags.characterName.replace(/\s+/g, '');
         const specialMappings: Record<string, string> = {
           'BlueOrbConjurer': 'BlueOrbConjurer',
@@ -1004,7 +1049,7 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
         setUrl(art.compressedUrl || art.originalUrl);
       }
     }
-  }, [isVisible, usePortrait, art.tags.characterName, art.originalUrl, art.compressedUrl]);
+  }, [isVisible, usePortrait, art.tags.characterName, art.originalUrl, art.compressedUrl, hasPortraitError]);
 
   useEffect(() => {
     if (isVideo && videoRef.current) {
@@ -1016,6 +1061,19 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
       }
     }
   }, [playOnHover, isHovered, isVideo, isVisible]);
+
+  useEffect(() => {
+    if (isAudio && audioRef.current) {
+      const shouldPlay = isVisible && isHovered && playOnHover; // Only play if playOnHover is true
+      if (shouldPlay) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => { });
+      } else if (!isHovered && playOnHover) {
+        // Only pause on hover-out if we were in hover-to-play mode
+        audioRef.current.pause();
+      }
+    }
+  }, [isHovered, isAudio, isVisible, playOnHover]);
 
   return (
     <motion.div
@@ -1042,11 +1100,14 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
         </button>
 
         <div
-          className={clsx("art-card-img-wrapper", art.type === 'vfx' && "aspect-video")}
+          className={clsx("art-card-img-wrapper", (art.type === 'vfx' || art.type === 'sfx') && "aspect-video")}
           style={{
-            minHeight: art.type === 'vfx' ? 'auto' : art.type === 'ability-icons' ? 'auto' : '300px',
+            minHeight: (art.type === 'vfx' || art.type === 'sfx') ? 'auto' : art.type === 'ability-icons' ? 'auto' : '300px',
             backgroundColor: 'var(--surface-hover)',
-            position: 'relative'
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
           {isSelectionMode && (
@@ -1083,12 +1144,108 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
                     }
                   }}
                 />
+              ) : isAudio ? (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '4px', 
+                  width: '100%', 
+                  height: '100%',
+                  background: 'black',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  overflow: 'hidden'
+                }}>
+                  {/* Portrait Background for SFX */}
+                  {art.tags.characterName && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      zIndex: 0,
+                      opacity: isHovered ? 0.6 : 0.3,
+                      transition: 'opacity 0.3s ease'
+                    }}>
+                      <img 
+                        src={`/portraits/Illustration_${art.tags.characterName.replace(/\s+/g, '')}_Portrait.png`}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(0.5) brightness(0.85)' }}
+                        onError={(e) => e.currentTarget.style.display = 'none'}
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        background: 'radial-gradient(circle at center, transparent 30%, black 100%)'
+                      }} />
+                    </div>
+                  )}
+
+                  {/* Animated Waveform Bars */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '80px', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+                    {[...Array(12)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        animate={isPlaying ? {
+                          height: [20, 60, 30, 80, 40, 20],
+                        } : {
+                          height: [20, 25, 20],
+                        }}
+                        transition={{
+                          duration: 0.8,
+                          repeat: Infinity,
+                          delay: i * 0.05,
+                          ease: "easeInOut"
+                        }}
+                        style={{
+                          width: '6px',
+                          backgroundColor: 'hsl(var(--primary))',
+                          borderRadius: '3px',
+                          opacity: isPlaying ? 1 : 0.6,
+                          boxShadow: isPlaying ? '0 0 15px hsl(var(--primary) / 0.5)' : 'none'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div style={{ 
+                    position: 'absolute', 
+                    bottom: '1rem', 
+                    fontSize: '0.7rem', 
+                    color: 'white',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    fontWeight: 700,
+                    zIndex: 2,
+                    textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                    opacity: isHovered || isPlaying ? 1 : 0.7
+                  }}>
+                    {isPlaying ? 'Playing Audio...' : (playOnHover ? 'Hover to Play' : 'Click to Play')}
+                  </div>
+                  <audio 
+                    ref={audioRef} 
+                    src={url} 
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                  />
+                </div>
               ) : (
                 <img
                   src={url}
                   alt={art.name}
                   loading="lazy"
                   draggable={false}
+                  onError={() => {
+                    if (usePortrait) {
+                      setHasPortraitError(true);
+                    }
+                  }}
                   style={{
                     width: '100%',
                     height: '100%',

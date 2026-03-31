@@ -1,4 +1,4 @@
-export type AssetType = 'concept-art' | 'animation' | 'vfx' | 'ability-icons' | 'references';
+export type AssetType = 'concept-art' | 'animation' | 'vfx' | 'sfx' | 'ability-icons' | 'references';
 
 export interface ConceptArt {
     id: string;
@@ -19,6 +19,7 @@ export interface ConceptArt {
         abilityTags?: string;
         abilityAction?: string;
         vfxType?: string[];
+        sfxType?: string[];
         characterName?: string;
     };
     createdAt: number;
@@ -41,6 +42,7 @@ export interface CategoryDefinition {
     abilityTags: string[];
     abilityAction: string[];
     vfxType: string[];
+    sfxType: string[];
     characterName: string[];
 }
 

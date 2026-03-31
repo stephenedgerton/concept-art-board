@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiUsers, FiSearch, FiRefreshCw, FiX, 
-  FiHexagon, FiZap, FiBox, FiStar, FiHome, FiImage, FiVideo, FiPlay, FiMaximize2, FiShield, FiActivity
+  FiHexagon, FiZap, FiBox, FiStar, FiHome, FiImage, FiVideo, FiPlay, FiMaximize2, FiShield, FiActivity, FiVolume2
 } from 'react-icons/fi';
 import { getAllArtworks } from './lib/db';
 import type { ConceptArt } from './lib/db';
@@ -35,6 +35,7 @@ export interface Character {
   cost?: CharacterCost;
   abilityCount?: number;
   animationCount?: number;
+  sfxCount?: number;
 }
 
 interface FilterState {
@@ -199,15 +200,21 @@ export default function CharacterBoard({ onBackToLanding, privacyMode, onToggleP
           const type = getVal(idx.type);
           
           const cleanName = name.toLowerCase().trim();
+          const cleanNameNoSpaces = cleanName.replace(/\s+/g, '');
+          const cleanNameUnderscores = cleanName.replace(/\s+/g, '_');
           
           // Count assets
           const charAssets = assets.filter(a => {
             const fileName = a.name.toLowerCase();
-            return a.tags.characterName === name || fileName.includes(cleanName);
+            return a.tags.characterName === name || 
+                   fileName.includes(cleanName) ||
+                   fileName.includes(cleanNameNoSpaces) ||
+                   fileName.includes(cleanNameUnderscores);
           });
           
           const abilityCount = charAssets.filter(a => a.type === 'ability-icons').length;
           const animationCount = charAssets.filter(a => a.type === 'animation').length;
+          const sfxCount = charAssets.filter(a => a.type === 'sfx').length;
 
           return {
             name,
@@ -222,7 +229,8 @@ export default function CharacterBoard({ onBackToLanding, privacyMode, onToggleP
             elements: idx.elements !== -1 && row[idx.elements] ? row[idx.elements].split('|').map(e => e.trim()).filter(Boolean) : [],
             cost: costData[cleanName],
             abilityCount,
-            animationCount
+            animationCount,
+            sfxCount
           };
         });
         setCharacters(data);
@@ -716,13 +724,13 @@ export const RosterCard = React.memo(function RosterCard({ char, onClick, includ
 // Character Profile Modal
 // -------------------------------------------------------------------------------- //
 function CharacterDetailModal({ character, assets, onClose, onSelectAsset, includeDev = false, privacyMode = false }: { character: Character, assets: ConceptArt[], onClose: () => void, onSelectAsset: (asset: ConceptArt) => void, includeDev?: boolean, privacyMode?: boolean }) {
-  const [activeTab, setActiveTab] = useState<'all' | 'concept' | 'animation' | 'vfx' | 'ability'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'concept' | 'animation' | 'vfx' | 'ability' | 'sfx'>('all');
   
   const filteredAssets = useMemo(() => {
     if (activeTab === 'all') {
-      // Custom ordering: 1. Concept art, 2. Animations, 3. Effects (VFX), 4. Ability icons
+      // Custom ordering: 1. Concept art, 2. Animations, 3. Effects (VFX), 4. Ability icons, 5. SFX
       return [...assets].sort((a, b) => {
-        const order = { 'concept-art': 1, 'animation': 2, 'vfx': 3, 'ability-icons': 4, 'references': 5 };
+        const order = { 'concept-art': 1, 'animation': 2, 'vfx': 3, 'ability-icons': 4, 'sfx': 5, 'references': 6 };
         return (order[a.type] || 99) - (order[b.type] || 99);
       });
     }
@@ -731,6 +739,7 @@ function CharacterDetailModal({ character, assets, onClose, onSelectAsset, inclu
       if (activeTab === 'animation') return a.type === 'animation';
       if (activeTab === 'vfx') return a.type === 'vfx';
       if (activeTab === 'ability') return a.type === 'ability-icons';
+      if (activeTab === 'sfx') return a.type === 'sfx';
       return true;
     });
   }, [assets, activeTab]);
@@ -763,7 +772,7 @@ function CharacterDetailModal({ character, assets, onClose, onSelectAsset, inclu
             <div className="info-block">
               <label>Asset Counts</label>
               <div className="val" style={{ fontSize: '0.85rem' }}>
-                {character.abilityCount || 0} Ability Icons • {character.animationCount || 0} Animations
+                {character.abilityCount || 0} Abils • {character.animationCount || 0} Anims • {character.sfxCount || 0} SFX
               </div>
             </div>
           </div>
@@ -776,7 +785,8 @@ function CharacterDetailModal({ character, assets, onClose, onSelectAsset, inclu
             <button className={activeTab === 'concept' ? 'active' : ''} onClick={() => setActiveTab('concept')}>Concept</button>
             <button className={activeTab === 'animation' ? 'active' : ''} onClick={() => setActiveTab('animation')}>Animations</button>
             <button className={activeTab === 'vfx' ? 'active' : ''} onClick={() => setActiveTab('vfx')}>VFX</button>
-            <button className={activeTab === 'ability' ? 'active' : ''} onClick={() => setActiveTab('ability')}>Ability Icons</button>
+            <button className={activeTab === 'ability' ? 'active' : ''} onClick={() => setActiveTab('ability')}>Abilities</button>
+            <button className={activeTab === 'sfx' ? 'active' : ''} onClick={() => setActiveTab('sfx')}>SFX</button>
           </div>
           <div className="scroll-area">
             {assets.length === 0 ? (
@@ -788,6 +798,7 @@ function CharacterDetailModal({ character, assets, onClose, onSelectAsset, inclu
                   { id: 'animation', label: 'Animations' },
                   { id: 'vfx', label: 'VFX' },
                   { id: 'ability-icons', label: 'Ability Icons' },
+                  { id: 'sfx', label: 'SFX' },
                   { id: 'references', label: 'References' }
                 ].map(group => {
                   const groupAssets = assets.filter(a => a.type === group.id);
@@ -826,24 +837,75 @@ function CharacterDetailModal({ character, assets, onClose, onSelectAsset, inclu
 const AssetPreviewCard = React.memo(function AssetPreviewCard({ asset, onClick }: { asset: ConceptArt, onClick: () => void }) {
   const [isHovered, setIsHovered] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const url = asset.compressedUrl || asset.originalUrl;
   const isVideo = asset.type === 'animation' || asset.type === 'vfx';
+  const isAudio = asset.type === 'sfx';
 
   useEffect(() => {
     if (isVideo && videoRef.current) {
       if (isHovered) videoRef.current.play().catch(() => {});
       else { videoRef.current.pause(); videoRef.current.currentTime = 0; }
     }
-  }, [isHovered, isVideo]);
+    if (isAudio && audioRef.current) {
+        if (isHovered) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(() => {});
+        } else {
+          audioRef.current.pause();
+        }
+    }
+  }, [isHovered, isVideo, isAudio]);
 
   return (
     <div className="asset-preview-card" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onClick={onClick} style={{ cursor: 'pointer' }}>
-      <div className="asset-thumb">
+      <div className="asset-thumb" style={{ position: 'relative' }}>
         {isVideo ? (
           <>
             <video ref={videoRef} src={url} muted loop playsInline preload="metadata" />
             <div className="video-indicator"><FiPlay /></div>
           </>
+        ) : isAudio ? (
+            <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '3px', 
+                width: '100%', 
+                height: '100%',
+                background: 'linear-gradient(45deg, hsl(var(--primary) / 0.1), transparent)',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '40px' }}>
+                    {[...Array(8)].map((_, i) => (
+                    <motion.div
+                        key={i}
+                        animate={isHovered ? {
+                        height: [10, 30, 15, 40, 20, 10],
+                        } : {
+                        height: [10, 12, 10],
+                        }}
+                        transition={{
+                        duration: 0.8,
+                        repeat: Infinity,
+                        delay: i * 0.05,
+                        ease: "easeInOut"
+                        }}
+                        style={{
+                        width: '4px',
+                        backgroundColor: 'hsl(var(--primary))',
+                        borderRadius: '2px',
+                        opacity: isHovered ? 1 : 0.4
+                        }}
+                    />
+                    ))}
+                </div>
+                <div className="video-indicator" style={{ opacity: isHovered ? 1 : 0.5 }}><FiVolume2 /></div>
+                <audio ref={audioRef} src={url} />
+            </div>
         ) : (
           <img src={url} alt={asset.name} loading="lazy" />
         )}
@@ -852,7 +914,9 @@ const AssetPreviewCard = React.memo(function AssetPreviewCard({ asset, onClick }
         </div>
       </div>
       <div className="asset-info-mini">
-        <span className="asset-type-icon">{isVideo ? <FiVideo size={10} /> : <FiImage size={10} />}</span>
+        <span className="asset-type-icon">
+            {isAudio ? <FiVolume2 size={10} /> : isVideo ? <FiVideo size={10} /> : <FiImage size={10} />}
+        </span>
         <span className="asset-name-mini">{asset.name}</span>
       </div>
     </div>
