@@ -42,6 +42,15 @@ This script will:
 *   Start the local bridge server (connects the app to your Egnyte files).
 *   Launch the ConceptVault in your default web browser at `http://localhost:5173`.
 
+### 🔄 Updating the App
+If you've already cloned the repository and want to get the latest features and fixes:
+1.  Open a terminal in the `concept-art-board` folder.
+2.  Run the following command:
+    ```bash
+    git pull
+    ```
+3.  Double-click **`Start_ConceptVault.bat`** to restart. (The script will automatically handle any new dependency installations).
+
 ---
 
 ## 🛠 Features
