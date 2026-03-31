@@ -225,7 +225,7 @@ export default function Vault({ onBackToLanding }: VaultProps) {
       case 'ability-icons':
         return ['element', 'characterName', 'abilityAction'];
       case 'references':
-        return ['referenceType'];
+        return ['referenceType', 'element'];
       default:
         return [];
     }
@@ -260,8 +260,8 @@ export default function Vault({ onBackToLanding }: VaultProps) {
     return result.sort((a, b) => {
       if (sortBy === 'date-desc') return b.createdAt - a.createdAt;
       if (sortBy === 'date-asc') return a.createdAt - b.createdAt;
-      if (sortBy === 'name-asc') return cleanName(a.name).localeCompare(cleanName(b.name));
-      if (sortBy === 'name-desc') return cleanName(b.name).localeCompare(cleanName(a.name));
+      if (sortBy === 'name-asc') return cleanName(a.name, a.tags.characterName).localeCompare(cleanName(b.name, b.tags.characterName));
+      if (sortBy === 'name-desc') return cleanName(b.name, b.tags.characterName).localeCompare(cleanName(a.name, a.tags.characterName));
       return 0;
     });
   }, [artworks, filters, searchQuery, activeTab, sortBy]);
@@ -907,7 +907,7 @@ function UploadModal({
       case 'vfx': return ['element', 'vfxType'];
       case 'sfx': return ['element', 'sfxType', 'characterName'];
       case 'ability-icons': return ['element', 'characterName'];
-      case 'references': return ['referenceType'];
+      case 'references': return ['referenceType', 'element'];
       default: return [];
     }
   }, [targetType]);
@@ -1323,7 +1323,7 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
             color: 'var(--text)',
             lineHeight: art.type === 'ability-icons' ? 1.2 : undefined,
           }}>
-            {cleanName(art.name)}
+            {cleanName(art.name, art.tags.characterName)}
           </h4>
           {art.type !== 'ability-icons' && showTags && (
             <div className="art-card-tags">
@@ -1410,7 +1410,7 @@ function StaticArtworkList({ art, onDelete, onClick, selected, isSelectionMode, 
       </div>
 
       <div className="list-info">
-        <h4 className="list-title">{cleanName(art.name)}</h4>
+        <h4 className="list-title">{cleanName(art.name, art.tags.characterName)}</h4>
         <div className="list-tags">
           {Object.entries(art.tags).map(([key, value]) => {
             if (!value) return null;

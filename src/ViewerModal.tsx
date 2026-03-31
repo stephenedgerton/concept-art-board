@@ -5,7 +5,16 @@ import { updateArtwork } from './lib/db';
 import type { ConceptArt } from './lib/db';
 import { clsx } from 'clsx';
 
-export const cleanName = (name: string) => name.replace(/_/g, ' ').replace(/\s*v\d+\s*$/i, '').trim();
+export const cleanName = (name: string, charName?: string) => {
+  let cleaned = name.replace(/^FB\s*SX\s*/i, '');
+  if (charName) {
+    // Escape regex special chars in charName and remove it case-insensitively
+    const escapedCharName = charName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedCharName, 'gi');
+    cleaned = cleaned.replace(regex, '');
+  }
+  return cleaned.replace(/_/g, ' ').replace(/\s*v\d+\s*$/i, '').replace(/\s+/g, ' ').trim();
+};
 
 interface ViewerModalProps {
   art: ConceptArt;
@@ -128,7 +137,7 @@ export default function ViewerModal({
       case 'vfx': return ['element', 'vfxType'];
       case 'sfx': return ['element', 'sfxType', 'characterName'];
       case 'ability-icons': return ['element', 'characterName', 'abilityAction'];
-      case 'references': return ['referenceType'];
+      case 'references': return ['referenceType', 'element'];
       default: return [];
     }
   }, [art.type]);
@@ -248,7 +257,7 @@ export default function ViewerModal({
                 style={{ marginBottom: '2rem', fontSize: '1.2rem', fontWeight: 600 }}
               />
             ) : (
-              <h2 className="viewer-title" style={{ marginBottom: '2rem' }}>{cleanName(editName)}</h2>
+              <h2 className="viewer-title" style={{ marginBottom: '2rem' }}>{cleanName(editName, art.tags.characterName)}</h2>
             )}
 
             <div className="metadata-group">
