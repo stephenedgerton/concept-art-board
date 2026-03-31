@@ -85,10 +85,10 @@ export default function LandingPage({
                 <button className="future-link active" onClick={onEnterRoster}>
                   <FiUsers /> <span>Unit Roster</span>
                 </button>
-                <button className="future-link active" onClick={onEnterEstimator}>
+                <button className="future-link">
                   <FiBarChart2 /> <span>Cost Estimator</span>
                 </button>
-                <button className="future-link active" onClick={onEnterDashboard}>
+                <button className="future-link">
                   <FiActivity /> <span>Production Dashboard</span>
                 </button>
                 <button className="future-link active" onClick={onEnterReview}>
