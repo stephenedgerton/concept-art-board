@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUpload, FiX, FiHome, FiTrash2, FiPlus, FiVideo, FiImage, FiMinus, FiMaximize2, FiGrid, FiLayout, FiSearch, FiMonitor } from 'react-icons/fi';
+import { FiUpload, FiX, FiHome, FiTrash2, FiPlus, FiVideo, FiImage, FiMinus, FiMaximize2, FiGrid, FiLayout, FiSearch, FiMonitor, FiColumns, FiLock, FiUnlock } from 'react-icons/fi';
 import { getAllArtworks, addArtwork } from './lib/db';
 import { cleanName } from './ViewerModal';
 import type { ConceptArt, AssetType } from './lib/db';
@@ -18,14 +18,28 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadType, setUploadType] = useState<'in-progress' | 'feedback'>('in-progress');
-  
-  const [layout, setLayout] = useState<'grid' | 'focused' | 'stage'>('grid');
+  const [layout, setLayout] = useState<'grid' | 'focused' | 'stage' | 'compare'>('grid');
   const [zoom, setZoom] = useState(1);
+  const [magnifierEnabled, setMagnifierEnabled] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeStageId, setActiveStageId] = useState<string | null>(null);
+  
+  // Comparison & Sync States
+  const [compareIds, setCompareIds] = useState<[string | null, string | null]>([null, null]);
+  const [isSynced, setIsSynced] = useState(true);
+  const [sharedTransform, setSharedTransform] = useState({ x: 0, y: 0, scale: 1 });
 
   const loadData = useCallback(async () => {
     try {
+      // Check health first to ensure backend is reachable
+      const healthRes = await fetch('/api/health').catch(() => {
+        throw new Error("Unable to connect to the backend server.");
+      });
+      
+      if (!healthRes.ok) {
+        throw new Error(`Server responded with ${healthRes.status}: ${healthRes.statusText}`);
+      }
+
       const allArt = await getAllArtworks();
       setVaultArtworks(allArt);
       
@@ -33,8 +47,9 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
       if (storedIds) {
         setReviewIds(JSON.parse(storedIds));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load review data:', err);
+      alert(err.message || 'An error occurred while loading data.');
     } finally {
       setLoading(false);
     }
@@ -48,7 +63,10 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
     if (layout === 'stage' && !activeStageId && reviewIds.length > 0) {
       setActiveStageId(reviewIds[0]);
     }
-  }, [layout, reviewIds, activeStageId]);
+    if (layout === 'compare' && !compareIds[0] && reviewIds.length > 0) {
+        setCompareIds([reviewIds[0], reviewIds[1] || null]);
+    }
+  }, [layout, reviewIds, activeStageId, compareIds]);
 
   const selectedVaultArt = useMemo(() => {
     return vaultArtworks.filter(art => reviewIds.includes(art.id));
@@ -108,9 +126,20 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {selectedVaultArt.map(art => (
-              <div key={art.id} className="review-item-sidebar">
+              <div 
+                key={art.id} 
+                className={clsx("review-item-sidebar", (layout === 'compare' && compareIds.includes(art.id)) && "active")}
+                onClick={() => {
+                    if (layout === 'compare') {
+                        if (compareIds[0] === art.id) setCompareIds([null, compareIds[1]]);
+                        else if (compareIds[1] === art.id) setCompareIds([compareIds[0], null]);
+                        else if (!compareIds[0]) setCompareIds([art.id, compareIds[1]]);
+                        else setCompareIds([compareIds[0], art.id]);
+                    }
+                }}
+              >
                 <span className="truncate" style={{ fontSize: '0.85rem' }}>{art.name}</span>
-                <button onClick={() => removeFromReview(art.id)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); removeFromReview(art.id); }} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}>
                   <FiMinus />
                 </button>
               </div>
@@ -146,10 +175,36 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
               >
                 <FiMonitor />
               </button>
+              <button 
+                className={clsx('toggle-btn', layout === 'compare' && 'active')} 
+                onClick={() => setLayout('compare')}
+                title="Compare Side-by-Side"
+              >
+                <FiColumns />
+              </button>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {layout === 'compare' && (
+                <button 
+                  className={clsx('toggle-btn', isSynced && 'active')} 
+                  onClick={() => setIsSynced(!isSynced)}
+                  title={isSynced ? "Unlock Views" : "Sync Zoom/Pan"}
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', gap: '0.4rem', display: 'flex', alignItems: 'center', border: '1px solid hsla(var(--primary) / 0.3)' }}
+                >
+                  {isSynced ? <FiLock size={14} /> : <FiUnlock size={14} />} <span>{isSynced ? "Synced" : "Locked"}</span>
+                </button>
+            )}
+            
+            <button 
+              className={clsx('toggle-btn', magnifierEnabled && 'active')} 
+              onClick={() => setMagnifierEnabled(!magnifierEnabled)}
+              title={magnifierEnabled ? "Disable Magnifier" : "Enable Magnifier"}
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', gap: '0.4rem', display: 'flex', alignItems: 'center' }}
+            >
+              <FiSearch size={14} /> <span>Magnifier</span>
+            </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-dim)' }}>
               <FiSearch size={14} />
               <input 
@@ -173,6 +228,37 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
               <FiImage size={48} />
               <h2>Review Board is Empty</h2>
               <p>Go to the Vault and select assets to send here, or upload new in-progress work.</p>
+            </div>
+          ) : layout === 'compare' ? (
+            <div className="compare-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', height: '100%' }}>
+                <div className="compare-pane">
+                    {compareIds[0] ? (
+                        <ReviewCard 
+                            art={vaultArtworks.find(a => a.id === compareIds[0])!} 
+                            onRemove={() => setCompareIds([null, compareIds[1]])}
+                            onExpand={() => setExpandedId(compareIds[0])}
+                            magnifierEnabled={magnifierEnabled}
+                            sharedTransform={isSynced ? sharedTransform : undefined}
+                            onTransformChange={isSynced ? setSharedTransform : undefined}
+                        />
+                    ) : (
+                        <div className="empty-compare-pane">Select an artwork from the sidebar to compare</div>
+                    )}
+                </div>
+                <div className="compare-pane">
+                    {compareIds[1] ? (
+                        <ReviewCard 
+                            art={vaultArtworks.find(a => a.id === compareIds[1])!} 
+                            onRemove={() => setCompareIds([compareIds[0], null])}
+                            onExpand={() => setExpandedId(compareIds[1])}
+                            magnifierEnabled={magnifierEnabled}
+                            sharedTransform={isSynced ? sharedTransform : undefined}
+                            onTransformChange={isSynced ? setSharedTransform : undefined}
+                        />
+                    ) : (
+                        <div className="empty-compare-pane">Select a second artwork to compare</div>
+                    )}
+                </div>
             </div>
           ) : layout === 'stage' ? (
             <div className="stage-layout">
@@ -199,6 +285,7 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
                     onRemove={() => removeFromReview(activeStageId)}
                     onExpand={() => setExpandedId(activeStageId)}
                     isExpanded={false}
+                    magnifierEnabled={magnifierEnabled}
                   />
                 )}
               </div>
@@ -220,6 +307,7 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
                     onRemove={() => removeFromReview(art.id)} 
                     onExpand={() => setExpandedId(art.id)}
                     isExpanded={expandedId === art.id}
+                    magnifierEnabled={magnifierEnabled}
                   />
                 ))}
               </AnimatePresence>
@@ -247,26 +335,112 @@ export default function ReviewPage({ onBackToLanding }: ReviewPageProps) {
   );
 }
 
-function ReviewCard({ art, onRemove, onExpand, isExpanded }: { art: ConceptArt, onRemove: () => void, onExpand: () => void, isExpanded?: boolean }) {
+interface Transform { x: number; y: number; scale: number; }
+
+function ReviewCard({ art, onRemove, onExpand, isExpanded, magnifierEnabled, sharedTransform, onTransformChange }: { 
+    art: ConceptArt, 
+    onRemove: () => void, 
+    onExpand: () => void, 
+    isExpanded?: boolean, 
+    magnifierEnabled: boolean,
+    sharedTransform?: Transform,
+    onTransformChange?: (t: Transform) => void
+}) {
   const mediaUrl = art.compressedUrl || art.originalUrl;
   const isVideo = art.type === 'animation' || art.type === 'vfx' || mediaUrl.toLowerCase().endsWith('.mp4') || mediaUrl.toLowerCase().endsWith('.mov') || mediaUrl.toLowerCase().endsWith('.webm');
   
   const [showMagnifier, setShowMagnifier] = useState(false);
   const [[x, y], setXY] = useState([0, 0]);
-  const [[imgWidth, imgHeight], setSize] = useState([0, 0]);
+  const [[containerWidth, containerHeight], setSize] = useState([0, 0]);
+  const [actualImgSize, setActualImgSize] = useState({ width: 0, height: 0, top: 0, left: 0 });
   const imgRef = useRef<HTMLImageElement>(null);
+  
+  // Internal Transform for Deep Zoom
+  const [internalTransform, setInternalTransform] = useState<Transform>({ x: 0, y: 0, scale: 1 });
+  const transform = sharedTransform || internalTransform;
+  const setTransform = onTransformChange || setInternalTransform;
+  const isDragging = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
 
   const handleMouseEnter = (e: React.MouseEvent) => {
-    const { width, height } = e.currentTarget.getBoundingClientRect();
-    setSize([width, height]);
-    setShowMagnifier(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setSize([rect.width, rect.height]);
+    
+    if (imgRef.current) {
+      const naturalRatio = imgRef.current.naturalWidth / imgRef.current.naturalHeight;
+      const containerRatio = rect.width / rect.height;
+      
+      let actualWidth, actualHeight;
+      if (containerRatio > naturalRatio) {
+        actualHeight = rect.height;
+        actualWidth = rect.height * naturalRatio;
+      } else {
+        actualWidth = rect.width;
+        actualHeight = rect.width / naturalRatio;
+      }
+      
+      const offsetX = (rect.width - actualWidth) / 2;
+      const offsetY = (rect.height - actualHeight) / 2;
+      
+      setActualImgSize({ width: actualWidth, height: actualHeight, top: offsetY, left: offsetX });
+    }
+
+    if (magnifierEnabled) {
+      setShowMagnifier(true);
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    const { top, left } = e.currentTarget.getBoundingClientRect();
-    const x = e.pageX - left - window.scrollX;
-    const y = e.pageY - top - window.scrollY;
-    setXY([x, y]);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const curX = e.pageX - rect.left - window.scrollX;
+    const curY = e.pageY - rect.top - window.scrollY;
+    setXY([curX, curY]);
+
+    if (isDragging.current) {
+        const dx = e.pageX - lastPos.current.x;
+        const dy = e.pageY - lastPos.current.y;
+        setTransform({ ...transform, x: transform.x + dx, y: transform.y + dy });
+        lastPos.current = { x: e.pageX, y: e.pageY };
+    }
+
+    if (imgRef.current && !actualImgSize.width) {
+      const naturalRatio = imgRef.current.naturalWidth / imgRef.current.naturalHeight;
+      const containerRatio = rect.width / rect.height;
+      let actualWidth, actualHeight;
+      if (containerRatio > naturalRatio) {
+        actualHeight = rect.height;
+        actualWidth = rect.height * naturalRatio;
+      } else {
+        actualWidth = rect.width;
+        actualHeight = rect.width / naturalRatio;
+      }
+      const offsetX = (rect.width - actualWidth) / 2;
+      const offsetY = (rect.height - actualHeight) / 2;
+      setActualImgSize({ width: actualWidth, height: actualHeight, top: offsetY, left: offsetX });
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (magnifierEnabled) return;
+    e.preventDefault();
+    const zoomSpeed = 0.001;
+    const newScale = Math.max(1, Math.min(10, transform.scale - e.deltaY * zoomSpeed));
+    setTransform({ ...transform, scale: newScale });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (magnifierEnabled) return;
+    isDragging.current = true;
+    lastPos.current = { x: e.pageX, y: e.pageY };
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+
+  const resetTransform = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTransform({ x: 0, y: 0, scale: 1 });
   };
 
   const MAGNIFIER_SIZE = 250;
@@ -279,6 +453,7 @@ function ReviewCard({ art, onRemove, onExpand, isExpanded }: { art: ConceptArt, 
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
+      style={{ display: 'flex', flexDirection: 'column' }}
     >
       <div className="review-card-header">
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -292,29 +467,49 @@ function ReviewCard({ art, onRemove, onExpand, isExpanded }: { art: ConceptArt, 
           )}
         </div>
         <div style={{ display: 'flex', gap: '0.2rem' }}>
+          {(transform.scale !== 1 || transform.x !== 0 || transform.y !== 0) && (
+              <button className="remove-btn" onClick={resetTransform} title="Reset Zoom" style={{ fontSize: '0.7rem', padding: '0 0.5rem' }}>Reset</button>
+          )}
           <button className="remove-btn" onClick={onExpand} title="Full Screen"><FiMaximize2 /></button>
           <button className="remove-btn" onClick={onRemove} title="Remove"><FiX /></button>
         </div>
       </div>
       <div 
         className="review-card-media" 
-        onClick={onExpand} 
-        style={{ cursor: 'crosshair', position: 'relative', overflow: 'hidden' }}
+        style={{ 
+            cursor: magnifierEnabled ? 'crosshair' : (isDragging.current ? 'grabbing' : 'grab'), 
+            position: 'relative', 
+            overflow: 'hidden',
+            flex: 1,
+            backgroundColor: '#0a0a0a'
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => setShowMagnifier(false)}
+        onMouseLeave={() => { setShowMagnifier(false); handleMouseUp(); }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
       >
         {isVideo ? (
           <video src={mediaUrl} controls autoPlay loop muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         ) : (
-          <>
+          <div style={{ 
+              width: '100%', 
+              height: '100%', 
+              transform: magnifierEnabled ? 'none' : `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+              transition: isDragging.current ? 'none' : 'transform 0.1s ease-out',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+          }}>
             <img 
               ref={imgRef}
               src={mediaUrl} 
               alt={art.name} 
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              draggable={false}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', userSelect: 'none' }} 
             />
-            {showMagnifier && (
+            {showMagnifier && magnifierEnabled && (
               <div
                 style={{
                   position: 'absolute',
@@ -328,8 +523,8 @@ function ReviewCard({ art, onRemove, onExpand, isExpanded }: { art: ConceptArt, 
                   backgroundColor: 'black',
                   backgroundImage: `url('${art.originalUrl}')`,
                   backgroundRepeat: 'no-repeat',
-                  backgroundSize: `${imgWidth * ZOOM_LEVEL}px ${imgHeight * ZOOM_LEVEL}px`,
-                  backgroundPosition: `${-x * ZOOM_LEVEL + MAGNIFIER_SIZE / 2}px ${-y * ZOOM_LEVEL + MAGNIFIER_SIZE / 2}px`,
+                  backgroundSize: `${actualImgSize.width * ZOOM_LEVEL}px ${actualImgSize.height * ZOOM_LEVEL}px`,
+                  backgroundPosition: `${-(x - actualImgSize.left) * ZOOM_LEVEL + MAGNIFIER_SIZE / 2}px ${-(y - actualImgSize.top) * ZOOM_LEVEL + MAGNIFIER_SIZE / 2}px`,
                   transform: `translate(${x - MAGNIFIER_SIZE / 2}px, ${y - MAGNIFIER_SIZE / 2}px)`,
                   boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
                   zIndex: 100,
@@ -337,7 +532,7 @@ function ReviewCard({ art, onRemove, onExpand, isExpanded }: { art: ConceptArt, 
                 }}
               />
             )}
-          </>
+          </div>
         )}
       </div>
       <div className="review-card-footer">

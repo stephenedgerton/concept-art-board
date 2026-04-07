@@ -75,7 +75,17 @@ const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_DIR),
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = file.originalname.includes('.') ? path.extname(file.originalname) : (file.mimetype.includes('video') ? '.webm' : '.png');
+        let ext = '';
+        if (file.originalname && file.originalname.includes('.')) {
+            ext = path.extname(file.originalname);
+        } else {
+            const mime = file.mimetype.toLowerCase();
+            if (mime.includes('video')) ext = '.webm';
+            else if (mime.includes('image')) ext = '.png';
+            else if (mime.includes('audio')) ext = '.mp3';
+            else if (mime.includes('fbx') || mime.includes('octet-stream')) ext = '.fbx';
+            else ext = '.fbx'; 
+        }
         cb(null, file.fieldname + '-' + uniqueSuffix + ext);
     }
 });
@@ -127,13 +137,22 @@ async function saveCategories(categories) {
 // Routes
 app.get('/api/health', async (req, res) => {
     // Re-check storage status on every health check request
-    await checkStorage();
-    res.json({ 
-        status: storageError ? 'error' : 'ok', 
-        message: storageError,
-        uploadsDir: UPLOADS_DIR,
-        dataDir: DATA_DIR
-    });
+    try {
+        await checkStorage();
+        res.json({ 
+            status: storageError ? 'error' : 'ok', 
+            message: storageError,
+            uploadsDir: UPLOADS_DIR,
+            dataDir: DATA_DIR
+        });
+    } catch (e) {
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+});
+
+app.post('/api/sync', async (req, res) => {
+    // Dummy sync route for now to prevent 404s
+    res.json({ success: true, count: 0 });
 });
 
 app.get('/api/artworks', async (req, res) => {

@@ -706,28 +706,33 @@
 .viewer-content {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   padding: 2rem;
   position: relative;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
+  gap: 1rem;
 }
+
 .viewer-image-container {
+  flex: 1;
   width: 100%;
-  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  background-color: #0a0a0a;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .viewer-carousel {
   display: flex;
   gap: 1rem;
-  padding: 1.5rem 0;
+  padding: 1rem 0 0;
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--primary) / 0.3) transparent;
+  flex-shrink: 0;
+  border-top: 1px solid hsl(var(--surface-hover));
 }
 
 .carousel-item {
@@ -785,6 +790,8 @@
   color: hsl(280 80% 70%);
   border-color: hsl(280 80% 50% / 0.3);
 }
+
+.viewer-image-wrapper {
   pointer-events: none; /* Let clicks pass through if needed, though header handles close */
 }
 
@@ -794,9 +801,10 @@
   width: auto;
   height: auto;
   object-fit: contain;
+  display: block;
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
-  pointer-events: auto; /* Re-enable for controls in video */
+  pointer-events: auto;
 }
 
 .viewer-sidebar {

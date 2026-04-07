@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiHome, FiRefreshCw, FiList, FiGrid } from 'react-icons/fi';
+import { FiUpload, FiSearch, FiTrash2, FiX, FiImage, FiFilter, FiVideo, FiPlus, FiEdit2, FiCheckSquare, FiBookOpen, FiHome, FiRefreshCw, FiList, FiGrid, FiBox } from 'react-icons/fi';
 import { clsx } from 'clsx';
 import {
   addArtwork, getAllArtworks, deleteArtwork,
@@ -226,6 +226,8 @@ export default function Vault({ onBackToLanding }: VaultProps) {
         return ['element', 'characterName', 'abilityAction'];
       case 'references':
         return ['referenceType', 'element'];
+      case '3d-model':
+        return ['baseMesh', 'characterName', 'rarity'];
       default:
         return [];
     }
@@ -435,6 +437,12 @@ export default function Vault({ onBackToLanding }: VaultProps) {
             onClick={() => { setActiveTab('ability-icons'); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('name-asc'); setZoom(1.25); }}
           >
             <FiImage /> Ability Icons
+          </button>
+          <button
+            className={clsx('tab', activeTab === '3d-model' && 'active')}
+            onClick={() => { setActiveTab('3d-model'); clearFilters(); setSelectedIds(new Set()); setIsSelectionMode(false); setSortBy('name-asc'); setZoom(1); }}
+          >
+            <FiBox /> 3D Models
           </button>
           <button
             className={clsx('tab', activeTab === 'references' && 'active')}
@@ -908,6 +916,7 @@ function UploadModal({
       case 'sfx': return ['element', 'sfxType', 'characterName'];
       case 'ability-icons': return ['element', 'characterName'];
       case 'references': return ['referenceType', 'element'];
+      case '3d-model': return ['baseMesh', 'characterName', 'rarity'];
       default: return [];
     }
   }, [targetType]);
@@ -986,7 +995,7 @@ function UploadModal({
             >
               <input
                 type="file"
-                accept="image/*,video/mp4,video/webm,video/quicktime,.mov"
+                accept="image/*,video/mp4,video/webm,video/quicktime,.mov,.fbx,.obj"
                 multiple
                 onChange={handleFile}
                 style={{ display: 'none' }}
@@ -1013,6 +1022,7 @@ function UploadModal({
               <button type="button" className={clsx('tab', targetType === 'vfx' && 'active')} onClick={() => setTargetType('vfx')}>VFX</button>
               <button type="button" className={clsx('tab', targetType === 'sfx' && 'active')} onClick={() => setTargetType('sfx')}>SFX</button>
               <button type="button" className={clsx('tab', targetType === 'ability-icons' && 'active')} onClick={() => setTargetType('ability-icons')}>Ability Icons</button>
+              <button type="button" className={clsx('tab', targetType === '3d-model' && 'active')} onClick={() => setTargetType('3d-model')}>3D Models</button>
               <button type="button" className={clsx('tab', targetType === 'references' && 'active')} onClick={() => setTargetType('references')}>References</button>
               </div>          </div>
 
@@ -1081,8 +1091,9 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   
-  const isVideo = !usePortrait && (art.type === 'animation' || art.type === 'vfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp4') || (url || art.originalUrl).toLowerCase().endsWith('.mov') || (url || art.originalUrl).toLowerCase().endsWith('.webm'));
-  const isAudio = art.type === 'sfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp3') || (url || art.originalUrl).toLowerCase().endsWith('.wav') || (url || art.originalUrl).toLowerCase().endsWith('.ogg');
+  const isModel = art.type === '3d-model' || (url || art.originalUrl).toLowerCase().endsWith('.fbx') || (url || art.originalUrl).toLowerCase().endsWith('.obj');
+  const isVideo = !usePortrait && !isModel && (art.type === 'animation' || art.type === 'vfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp4') || (url || art.originalUrl).toLowerCase().endsWith('.mov') || (url || art.originalUrl).toLowerCase().endsWith('.webm'));
+  const isAudio = !isModel && (art.type === 'sfx' || (url || art.originalUrl).toLowerCase().endsWith('.mp3') || (url || art.originalUrl).toLowerCase().endsWith('.wav') || (url || art.originalUrl).toLowerCase().endsWith('.ogg'));
 
   const { ref, isVisible } = useVisibility();
 
@@ -1197,7 +1208,7 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
                     }
                   }}
                 />
-              ) : isAudio ? (
+              ) : isAudio || isModel ? (
                 <div style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1211,7 +1222,7 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
                   left: 0,
                   overflow: 'hidden'
                 }}>
-                  {/* Portrait Background for SFX */}
+                  {/* Portrait Background for SFX/3D */}
                   {art.tags.characterName && (
                     <div style={{
                       position: 'absolute',
@@ -1220,7 +1231,7 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
                       width: '100%',
                       height: '100%',
                       zIndex: 0,
-                      opacity: isHovered ? 0.6 : 0.3,
+                      opacity: isHovered || isPlaying ? 0.6 : 0.3,
                       transition: 'opacity 0.3s ease'
                     }}>
                       <img 
@@ -1240,53 +1251,64 @@ function StaticArtwork({ art, onDelete, onClick, selected, isSelectionMode, play
                     </div>
                   )}
 
-                  {/* Animated Waveform Bars */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '80px', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-                    {[...Array(12)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        animate={isPlaying ? {
-                          height: [20, 60, 30, 80, 40, 20],
-                        } : {
-                          height: [20, 25, 20],
-                        }}
-                        transition={{
-                          duration: 0.8,
-                          repeat: Infinity,
-                          delay: i * 0.05,
-                          ease: "easeInOut"
-                        }}
-                        style={{
-                          width: '6px',
-                          backgroundColor: 'hsl(var(--primary))',
-                          borderRadius: '3px',
-                          opacity: isPlaying ? 1 : 0.6,
-                          boxShadow: isPlaying ? '0 0 15px hsl(var(--primary) / 0.5)' : 'none'
-                        }}
+                  {isModel ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', zIndex: 1 }}>
+                      <FiBox size={60} color="hsl(var(--primary))" />
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        3D Model
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Animated Waveform Bars */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '80px', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+                        {[...Array(12)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            animate={isPlaying ? {
+                              height: [20, 60, 30, 80, 40, 20],
+                            } : {
+                              height: [20, 25, 20],
+                            }}
+                            transition={{
+                              duration: 0.8,
+                              repeat: Infinity,
+                              delay: i * 0.05,
+                              ease: "easeInOut"
+                            }}
+                            style={{
+                              width: '6px',
+                              backgroundColor: 'hsl(var(--primary))',
+                              borderRadius: '3px',
+                              opacity: isPlaying ? 1 : 0.6,
+                              boxShadow: isPlaying ? '0 0 15px hsl(var(--primary) / 0.5)' : 'none'
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div style={{ 
+                        position: 'absolute', 
+                        bottom: '1rem', 
+                        fontSize: '0.7rem', 
+                        color: 'white',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        fontWeight: 700,
+                        zIndex: 2,
+                        textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                        opacity: isHovered || isPlaying ? 1 : 0.7
+                      }}>
+                        {isPlaying ? 'Playing Audio...' : (playOnHover ? 'Hover to Play' : 'Click to Play')}
+                      </div>
+                      <audio 
+                        ref={audioRef} 
+                        src={url} 
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        onEnded={() => setIsPlaying(false)}
                       />
-                    ))}
-                  </div>
-                  <div style={{ 
-                    position: 'absolute', 
-                    bottom: '1rem', 
-                    fontSize: '0.7rem', 
-                    color: 'white',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    fontWeight: 700,
-                    zIndex: 2,
-                    textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                    opacity: isHovered || isPlaying ? 1 : 0.7
-                  }}>
-                    {isPlaying ? 'Playing Audio...' : (playOnHover ? 'Hover to Play' : 'Click to Play')}
-                  </div>
-                  <audio 
-                    ref={audioRef} 
-                    src={url} 
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    onEnded={() => setIsPlaying(false)}
-                  />
+                    </>
+                  )}
                 </div>
               ) : (
                 <img

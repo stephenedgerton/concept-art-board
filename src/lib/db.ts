@@ -1,4 +1,4 @@
-export type AssetType = 'concept-art' | 'animation' | 'vfx' | 'sfx' | 'ability-icons' | 'references';
+export type AssetType = 'concept-art' | 'animation' | 'vfx' | 'sfx' | 'ability-icons' | 'references' | '3d-model';
 
 export interface ConceptArt {
     id: string;

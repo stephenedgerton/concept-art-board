@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { FiArrowRight, FiGithub, FiTwitter, FiUsers, FiBarChart2, FiActivity } from 'react-icons/fi';
+import { FiArrowRight, FiGithub, FiTwitter, FiUsers, FiBarChart2, FiActivity, FiMonitor } from 'react-icons/fi';
 import './LandingPage.css';
 
 interface LandingPageProps {
@@ -17,6 +17,8 @@ export default function LandingPage({
   privacyMode, onTogglePrivacy 
 }: LandingPageProps) {
   const backgroundImage = "/backgrounds/Frostbite_Background.jpg";
+
+  console.log('LandingPage rendering. Props:', { privacyMode });
 
   return (
     <div className="landing-container">
@@ -85,14 +87,14 @@ export default function LandingPage({
                 <button className="future-link active" onClick={onEnterRoster}>
                   <FiUsers /> <span>Unit Roster</span>
                 </button>
-                <button className="future-link">
+                <button className="future-link active" onClick={onEnterEstimator}>
                   <FiBarChart2 /> <span>Cost Estimator</span>
                 </button>
-                <button className="future-link">
+                <button className="future-link active" onClick={onEnterDashboard}>
                   <FiActivity /> <span>Production Dashboard</span>
                 </button>
                 <button className="future-link active" onClick={onEnterReview}>
-                  <FiUsers /> <span>Review Tool</span>
+                  <FiMonitor /> <span>Review Tool</span>
                 </button>
               </div>
             </motion.div>

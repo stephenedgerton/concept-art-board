@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiUsers, FiSearch, FiRefreshCw, FiX, 
-  FiHexagon, FiZap, FiBox, FiStar, FiHome, FiImage, FiVideo, FiPlay, FiMaximize2, FiShield, FiActivity, FiVolume2
+  FiHexagon, FiBox, FiStar, FiHome, FiImage, FiVideo, FiPlay, FiMaximize2, FiShield, FiActivity, FiVolume2
 } from 'react-icons/fi';
 import { getAllArtworks } from './lib/db';
 import type { ConceptArt } from './lib/db';
@@ -439,7 +439,7 @@ export default function CharacterBoard({ onBackToLanding, privacyMode, onToggleP
           <AnalyticsGroup title="Subtypes" data={analytics.subtypes} icon={<FiShield />} />
           <AnalyticsGroup title="Factions" data={analytics.factions} icon={<FiActivity />} />
           <AnalyticsGroup title="Rarity" data={analytics.rarities} icon={<FiStar />} />
-          <AnalyticsGroup title="Elements" data={analytics.elements} icon={<FiZap />} />
+          <AnalyticsGroup title="Elements" data={analytics.elements} icon={<FiActivity />} />
         </section>
 
         <section className="gallery-container">
@@ -694,7 +694,7 @@ export const RosterCard = React.memo(function RosterCard({ char, onClick, includ
           <h4 className="section-label">TRAITS</h4>
           <div className="mini-details">
             <div className="detail-tag"><FiUsers size={10} /> {char.race} ({char.gender})</div>
-            {char.visualPillar && <div className="detail-tag"><FiZap size={10} /> {char.visualPillar}</div>}
+            {char.visualPillar && <div className="detail-tag"><FiActivity size={10} /> {char.visualPillar}</div>}
             {char.baseMesh && <div className="detail-tag"><FiBox size={10} /> {char.baseMesh}</div>}
           </div>
         </div>

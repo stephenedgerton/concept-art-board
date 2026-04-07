@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiX, FiLink, FiImage, FiUser } from 'react-icons/fi';
+import { FiX, FiLink, FiImage, FiUser, FiBox, FiVideo, FiLoader } from 'react-icons/fi';
 import { updateArtwork } from './lib/db';
 import type { ConceptArt } from './lib/db';
 import { clsx } from 'clsx';
+import ModelViewer from './ModelViewer';
 
 export const cleanName = (name: string, charName?: string) => {
   let cleaned = name.replace(/^FB\s*SX\s*/i, '');
@@ -28,7 +29,7 @@ interface ViewerModalProps {
 
 interface Variation {
   id: string;
-  type: 'concept' | 'portrait' | 'other';
+  type: 'concept' | 'portrait' | 'model' | 'other';
   url: string;
   name: string;
   asset?: ConceptArt;
@@ -44,7 +45,7 @@ export default function ViewerModal({
   usePortrait = false 
 }: ViewerModalProps) {
   const [activeUrl, setActiveUrl] = useState<string>('');
-  const [activeType, setActiveType] = useState<'video' | 'image' | 'audio'>('image');
+  const [activeType, setActiveType] = useState<'video' | 'image' | 'audio' | '3d'>('image');
   const [selectedVariationId, setSelectedVariationId] = useState<string>('main');
 
   const [isEditing, setIsEditing] = useState(false);
@@ -58,9 +59,9 @@ export default function ViewerModal({
     // 1. The main asset itself
     list.push({
       id: 'main',
-      type: 'concept',
+      type: art.type === '3d-model' ? 'model' : 'concept',
       url: art.compressedUrl || art.originalUrl,
-      name: 'Concept Art',
+      name: art.type === '3d-model' ? '3D Model' : 'Concept Art',
       asset: art
     });
 
@@ -86,14 +87,16 @@ export default function ViewerModal({
     if (art.tags.characterName) {
       const others = allArtworks.filter(a => 
         a.id !== art.id && 
-        a.tags.characterName === art.tags.characterName
+        a.tags.characterName === art.tags.characterName &&
+        a.type !== 'ability-icons' &&
+        a.type !== 'sfx' // Exclude ability icons and SFX from concept/model variation popup
       );
       others.forEach(other => {
         list.push({
           id: other.id,
-          type: 'other',
+          type: other.type === '3d-model' ? 'model' : 'other',
           url: other.compressedUrl || other.originalUrl,
-          name: other.name,
+          name: other.type === '3d-model' ? '3D Model' : other.name,
           asset: other
         });
       });
@@ -115,15 +118,21 @@ export default function ViewerModal({
   }, [art, usePortrait, variations]);
 
   useEffect(() => {
+    if (!activeUrl) return;
+
     const url = activeUrl.toLowerCase();
-    if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov')) {
+    const variation = variations.find(v => v.id === selectedVariationId);
+    
+    if (variation?.type === 'model' || variation?.asset?.type === '3d-model' || url.endsWith('.fbx') || url.endsWith('.obj')) {
+      setActiveType('3d');
+    } else if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov')) {
       setActiveType('video');
     } else if (url.endsWith('.mp3') || url.endsWith('.wav') || url.endsWith('.ogg')) {
       setActiveType('audio');
     } else {
       setActiveType('image');
     }
-  }, [activeUrl]);
+  }, [activeUrl, selectedVariationId, variations]);
 
   useEffect(() => {
     setEditName(art.name);
@@ -138,6 +147,7 @@ export default function ViewerModal({
       case 'sfx': return ['element', 'sfxType', 'characterName'];
       case 'ability-icons': return ['element', 'characterName', 'abilityAction'];
       case 'references': return ['referenceType', 'element'];
+      case '3d-model': return ['baseMesh', 'characterName', 'rarity'];
       default: return [];
     }
   }, [art.type]);
@@ -159,7 +169,6 @@ export default function ViewerModal({
 
   const handlePortraitError = () => {
     if (selectedVariationId === 'portrait') {
-      // Fallback to main
       const main = variations.find(v => v.id === 'main')!;
       setSelectedVariationId('main');
       setActiveUrl(main.url);
@@ -185,6 +194,7 @@ export default function ViewerModal({
             <button 
               className="copy-link-btn" 
               onClick={() => {
+                if (!activeUrl) return;
                 const fullUrl = window.location.origin + activeUrl;
                 navigator.clipboard.writeText(fullUrl);
                 alert('Link copied to clipboard!');
@@ -200,24 +210,33 @@ export default function ViewerModal({
         <div className="viewer-layout">
           <div className="viewer-content">
             <div className="viewer-image-container">
-              {activeType === 'video' ? (
-                <video src={activeUrl} controls autoPlay loop className="viewer-image" />
-              ) : activeType === 'audio' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', color: 'hsl(var(--primary))' }}>
-                   <FiVideo size={120} />
-                   <audio src={activeUrl} controls autoPlay />
-                </div>
+              {activeUrl ? (
+                <>
+                  {activeType === '3d' ? (
+                    <ModelViewer url={activeUrl} backgroundUrl="/backgrounds/Frostbite_Background.jpg" />
+                  ) : activeType === 'video' ? (
+                    <video src={activeUrl} controls autoPlay loop className="viewer-image" />
+                  ) : activeType === 'audio' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', color: 'hsl(var(--primary))' }}>
+                       <FiVideo size={120} />
+                       <audio src={activeUrl} controls autoPlay />
+                    </div>
+                  ) : (
+                    <img 
+                      src={activeUrl} 
+                      alt={art.name} 
+                      className="viewer-image" 
+                      onError={handlePortraitError}
+                    />
+                  )}
+                </>
               ) : (
-                <img 
-                  src={activeUrl} 
-                  alt={art.name} 
-                  className="viewer-image" 
-                  onError={handlePortraitError}
-                />
+                <div className="loading-placeholder">
+                   <FiLoader className="spinner" size={40} />
+                </div>
               )}
             </div>
 
-            {/* Variation Carousel */}
             {variations.length > 1 && (
               <div className="viewer-carousel">
                 {variations.map(v => (
@@ -232,11 +251,21 @@ export default function ViewerModal({
                     <div className="carousel-preview">
                       {v.type === 'portrait' ? (
                         <FiUser size={24} />
+                      ) : v.type === 'model' ? (
+                        <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                           {art.tags.characterName ? (
+                             <img 
+                                src={`/portraits/Illustration_${art.tags.characterName.replace(/\s+/g, '')}_Portrait.png`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }}
+                                onError={(e) => e.currentTarget.style.display = 'none'}
+                             />
+                           ) : null}
+                           <FiBox size={24} style={{ position: 'absolute', zIndex: 1 }} />
+                        </div>
                       ) : v.url.toLowerCase().endsWith('.mp4') ? (
                         <FiVideo size={24} />
                       ) : (
                         <img src={v.url} alt={v.name} onError={(e) => {
-                           // If small preview fails, hide or show icon
                            e.currentTarget.style.display = 'none';
                         }} />
                       )}
